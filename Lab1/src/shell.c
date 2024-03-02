@@ -10,19 +10,20 @@ void shell_exec(){
   char *tmp;
 
   while (1){
-    uart_writeS("# ");
+    uart_sends("# ");
     tmp = buffer;
     for (int i = 0; i < BUF_LEN; i++)
     {
-      *tmp = uart_read();
-      uart_write(*tmp);
+      *tmp = uart_recv();
+      uart_send(*tmp);
       if (*tmp == 127){
         i--;
-        if(*tmp != buffer[0]){
-          *tmp-- = 0;          
-          uart_write('\b');
-          uart_write(' ');
-          uart_write('\b'); 
+        if(i >= 0){
+          i--;
+          *tmp-- = 0;
+          uart_send('\b');
+          uart_send(' ');
+          uart_send('\b');
         }
       }
       else if (*tmp == '\n'){
@@ -43,6 +44,6 @@ void command_exec(const char *s){
       return;
     }
   }
-  uart_writeS(s);
-  uart_writeS(": command not found\n");
+  uart_sends(s);
+  uart_sends(": command not found\n");
 }
