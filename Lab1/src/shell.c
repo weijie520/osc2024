@@ -31,6 +31,8 @@ void shell_exec(){
         break;
       }
       else tmp++;
+      uart_sendh(i);
+      uart_send('\n');
     }
     command_exec(buffer);
   }
