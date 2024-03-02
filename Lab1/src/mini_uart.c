@@ -37,7 +37,7 @@ void uart_init()
   *AUX_MU_CNTL_REG = 3; // Enable transmitter and receiver
 }
 
-char uart_read()
+char uart_recv()
 {
   char c;
   while (1)
@@ -45,15 +45,12 @@ char uart_read()
     if ((*AUX_MU_LSR_REG) & 0x01)
       break;
   }
-  // do{
-  // asm volatile("nop");
-  // }while(!((*AUX_MU_LSR_REG)&0x01));
   c = (char)*AUX_MU_IO_REG;
 
   return c == '\r' ? '\n' : c;
 }
 
-void uart_write(unsigned int c)
+void uart_send(unsigned int c)
 {
   while (1)
   {
@@ -61,31 +58,28 @@ void uart_write(unsigned int c)
       break;
   }
 
-  // do{
-  //   asm volatile("nop");
-  // }while(!((*AUX_MU_LSR_REG)&0x20));
   *AUX_MU_IO_REG = c;
 }
 
-void uart_writeS(const char *s)
+void uart_sends(const char *s)
 {
   while (*s)
   {
     if (*s == '\n')
     {
-      uart_write('\r');
+      uart_send('\r');
     }
-    uart_write(*s++);
+    uart_send(*s++);
   }
 }
 
-void uart_writeH(unsigned int h) {
+void uart_sendh(unsigned int h) {
   unsigned int n;
   int c;
   for (c = 28; c >= 0; c -= 4) {
     n = (h >> c) & 0xf;
     n += n > 9 ? 0x37 : '0';
-    uart_write(n);
+    uart_send(n);
   }
   return;
 }

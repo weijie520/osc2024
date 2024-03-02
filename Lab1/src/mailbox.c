@@ -31,9 +31,9 @@ void get_board_revision(){
   mailbox[6] = END_TAG;
 
   if(mailbox_call(mailbox)){
-    uart_writeS("broad revision\t: ");
-    uart_writeH(mailbox[5]);
-    uart_write('\n');
+    uart_sends("broad revision\t: ");
+    uart_sendh(mailbox[5]);
+    uart_send('\n');
   }
 }
 
@@ -48,10 +48,10 @@ void get_arm_memory(){
   mailbox[6] = 0; // value buffer
   mailbox[7] = END_TAG;
   if(mailbox_call(mailbox)){
-    uart_writeS("Arm memory base address\t: ");
-    uart_writeH(mailbox[5]);
-    uart_writeS("\nArm memory size\t: ");
-    uart_writeH(mailbox[6]);
-    uart_write('\n');
+    uart_sends("Arm memory base address\t: ");
+    uart_sendh(mailbox[5]);
+    uart_sends("\nArm memory size\t: ");
+    uart_sendh(mailbox[6]);
+    uart_send('\n');
   }
 }

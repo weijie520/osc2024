@@ -8,7 +8,7 @@ void main(){
     // if(!strcmp("123", "123"))
     //   uart_writeS("same\n");
     // else uart_writeS("different\n");
-    uart_writeS("Hello world\n");
+    uart_sends("Hello world\n");
 
     shell_exec();
 }

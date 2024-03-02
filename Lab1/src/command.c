@@ -17,16 +17,16 @@ struct Command commands[] = {
 int help(){
   for (int i = 0; i < MAX_COMM_NUM; i++)
   {
-    uart_writeS(commands[i].name);
-    uart_writeS("\t: ");
-    uart_writeS(commands[i].description);
-    uart_write('\n');
+    uart_sends(commands[i].name);
+    uart_sends("\t: ");
+    uart_sends(commands[i].description);
+    uart_send('\n');
   }
   return 0;
 }
 
 int hello(){
-  uart_writeS("Hello world!\n");
+  uart_sends("Hello world!\n");
   return 0;
 }
 

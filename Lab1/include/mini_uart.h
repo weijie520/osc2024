@@ -17,9 +17,9 @@
 #define AUX_MU_BAUD_REG (volatile unsigned int*)(MMU_BASE+0x00215068)
 
 void uart_init();
-char uart_read();
-void uart_write(unsigned int c);
-void uart_writeS(const char* s);
-void uart_writeH(unsigned int n);
+char uart_recv();
+void uart_send(unsigned int c);
+void uart_sends(const char* s);
+void uart_sendh(unsigned int n);
 
 #endif
