@@ -19,6 +19,7 @@
 void uart_init();
 char uart_recv();
 void uart_send(unsigned int c);
+void uart_sendc(const char c);
 void uart_sends(const char* s);
 void uart_sendh(unsigned int n);
 

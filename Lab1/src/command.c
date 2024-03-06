@@ -20,7 +20,7 @@ int help(){
     uart_sends(commands[i].name);
     uart_sends("\t: ");
     uart_sends(commands[i].description);
-    uart_send('\n');
+    uart_sendc('\n');
   }
   return 0;
 }
@@ -39,7 +39,7 @@ int lshw(){
 int reboot(){
   // uart_writeS("Re\n");
   *PM_RSTC = (PM_PASSWORD | 0x20);
-  *PM_WDOG = (PM_PASSWORD | 10);
+  *PM_WDOG = (PM_PASSWORD | 20);
   return 0;
 }
 

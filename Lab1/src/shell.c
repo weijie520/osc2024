@@ -15,15 +15,15 @@ void shell_exec(){
     for (int i = 0; i < BUF_LEN; i++)
     {
       *tmp = uart_recv();
-      uart_send(*tmp);
+      uart_sendc(*tmp);
       if (*tmp == 127){
         i--;
         if(i >= 0){
           i--;
           *tmp-- = 0;
-          uart_send('\b');
-          uart_send(' ');
-          uart_send('\b');
+          uart_sendc('\b');
+          uart_sendc(' ');
+          uart_sendc('\b');
         }
       }
       else if (*tmp == '\n'){

@@ -33,7 +33,7 @@ void get_board_revision(){
   if(mailbox_call(mailbox)){
     uart_sends("broad revision\t: ");
     uart_sendh(mailbox[5]);
-    uart_send('\n');
+    uart_sendc('\n');
   }
 }
 
@@ -52,6 +52,6 @@ void get_arm_memory(){
     uart_sendh(mailbox[5]);
     uart_sends("\nArm memory size\t: ");
     uart_sendh(mailbox[6]);
-    uart_send('\n');
+    uart_sendc('\n');
   }
 }

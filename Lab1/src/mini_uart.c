@@ -73,6 +73,15 @@ void uart_sends(const char *s)
   }
 }
 
+void uart_sendc(const char c)
+{
+  if (c == '\n')
+  {
+    uart_send('\r');
+  }
+  uart_send(c);
+}
+
 void uart_sendh(unsigned int h) {
   unsigned int n;
   int c;
