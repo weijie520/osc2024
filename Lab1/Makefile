@@ -1,4 +1,4 @@
-GNUARM ?= aarch64-linux-gnu
+GNUARM = aarch64-linux-gnu
 
 CFLAGS = -Wall -nostdlib -nostartfiles -ffreestanding -Iinclude
 
