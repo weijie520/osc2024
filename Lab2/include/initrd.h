@@ -20,8 +20,11 @@ typedef struct{
 }cpio_header;
 
 void initrd_list();
-void initrd_cat(); //const char* filename
+void initrd_cat(char *filename); //const char* filename
 int memcmp(const void *s1, const void *s2, int n);
 int hstr2int(const char *str, int len);
+int get_initrd();
+void initramfs_callback(void *node, char *propname);
+
 
 #endif
