@@ -41,7 +41,7 @@ int lshw(){
 int reboot(){
   // uart_writeS("Re\n");
   *PM_RSTC = (PM_PASSWORD | 0x20);
-  *PM_WDOG = (PM_PASSWORD | 10);
+  *PM_WDOG = (PM_PASSWORD | 20);
   return 0;
 }
 
@@ -51,6 +51,30 @@ int ls(){
 }
 
 int cat(){
-  initrd_cat();
+  uart_sends("Filename: ");
+  char filename[257];
+  char *tmp = filename;
+  for (int i = 0; i < 256; i++)
+  {
+    *tmp = uart_recv();
+    uart_sendc(*tmp);
+    if (*tmp == 127){
+      i--;
+      if(i >= 0){
+        i--;
+        *tmp-- = 0;
+        uart_sendc('\b');
+        uart_sendc(' ');
+        uart_sendc('\b');
+      }
+    }
+    else if (*tmp == '\n'){
+      break;
+    }
+    else tmp++;
+  }
+  *tmp = '\0';
+  
+  initrd_cat(filename);
   return 0;
 }

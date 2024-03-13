@@ -27,11 +27,11 @@ void shell_exec(){
         }
       }
       else if (*tmp == '\n'){
-        *tmp = '\0';
         break;
       }
       else tmp++;
     }
+    *tmp = '\0';
     command_exec(buffer);
   }
 }
