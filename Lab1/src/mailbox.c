@@ -19,7 +19,7 @@ int mailbox_call(volatile unsigned int *message){
 }
 
 void get_board_revision(){
-  volatile unsigned int __attribute__((aligned(16))) mailbox[7];
+  volatile unsigned int __attribute__((aligned(16))) mailbox[7]; 
   mailbox[0] = 7 * 4; // buffer size in bytes
   mailbox[1] = REQUEST_CODE;
   // tags begin

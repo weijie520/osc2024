@@ -11,7 +11,7 @@
 #define MAILBOX_EMPTY   0x40000000
 #define MAILBOX_FULL    0x80000000
 
-#define CHANNEL8 0x8 //8?
+#define CHANNEL8 0x8 //8? Request from ARM for response by VC, CPU->GPU
 
 #define GET_BOARD_REVISION 0x00010002
 #define GET_ARM_MEMORY     0x00010005
