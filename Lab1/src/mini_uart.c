@@ -22,8 +22,9 @@ void uart_init()
 
   *GPPUD = 0; // disable pull up/down
   delay(150); // wait 150 cycles
-  *GPPUDCLK0 |= (1 << 14) | (1 << 15);
+  *GPPUDCLK0 |= (1 << 14) | (1 << 15); // 0 for 0-31
   delay(150);
+  *GPPUD = 0;
   *GPPUDCLK0 = 0;
 
   *AUX_ENABLES = 1;       // enable mini-uart
