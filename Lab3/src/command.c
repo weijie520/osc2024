@@ -41,7 +41,6 @@ int lshw(void* args[]){
 }
 
 int reboot(void* args[]){
-  uart_sends("Rebooting...\n");
   *PM_RSTC = (PM_PASSWORD | 0x20);
   *PM_WDOG = (PM_PASSWORD | 20);
   return 0;
