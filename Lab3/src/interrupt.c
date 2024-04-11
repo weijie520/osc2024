@@ -77,7 +77,27 @@ int irq_entry(){
 }
 
 int lower_irq_entry(){
-  uart_sends("In lower irq_handler");
+  disable_irq();
+  if(*IRQ_PEND1_REG & (1 << 29)){ // AUX INT
+    if(*AUX_MU_IIR_REG & 0x2){
+      // Transmitter
+      *AUX_MU_IER_REG &= ~(0x2);
+      uart_tx_handler();
+    }
+    else if(*AUX_MU_IIR_REG & 0x4){
+      // Receiver
+      *AUX_MU_IER_REG &= ~(0x1);
+      uart_rx_handler();
+    }
+  }
+  else if(*CORE0_IRQ_SOURCE & 0x2){ // CNTPSIRQ INT
+    // core_timer_handler();
+    core_timer_disable();
+    timer_irq_handler();
+    core_timer_enable();
+    // timer_irq_handler();
+  }
+  enable_irq();
   return 0;
 }
 
@@ -169,7 +189,7 @@ int mini_uart_irq_handler(){
     *AUX_MU_IER_REG &= ~(0x2);
     // uart_sends("In tx interrupt!!!\n");
     // uart_tx_handler();
-    add_irq_task(uart_tx_handler, 10);
+    add_irq_task(uart_tx_handler, 20);
   }
   else if(*AUX_MU_IIR_REG & 0x4){
     // Receiver
