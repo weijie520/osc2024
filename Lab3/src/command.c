@@ -76,8 +76,8 @@ int exec(void* args[]){
     void *stack_top = stack + STACK_SIZE;
 
     asm volatile(
-      "mov x4, 0x3c0;"
-      "msr spsr_el1, x4;"
+      "mov x4, 0x3c0;" // 001111000000 
+      "msr spsr_el1, x4;" // spsr_el1 bit[9:6] are D, A, I, and F; bit[3:0]: el0t
       "msr elr_el1, %0;"
       "msr sp_el0, %1;"
       "eret;" :: "r" (exec_data), "r" (stack_top) // :: is for input; : for output
