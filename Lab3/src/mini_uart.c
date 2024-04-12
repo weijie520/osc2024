@@ -206,28 +206,44 @@ void uart_async_sends(const char *s){
 }
 
 void uart_async_test(){
-  uart_sends("This is uart async test!\n");
-  mini_uart_irq_enable();
-  *AUX_MU_IER_REG |= (0x1);
+  char opt[256];
+  uart_sends("test for (1)async (2)preemption > ");
+  gets(opt);
+  switch(atoi(opt)){
+    case 1:
+      uart_sends("uart async test!\n");
+      mini_uart_irq_enable();
+      *AUX_MU_IER_REG |= (0x1);
 
-  // delay(1500000000); // for qemu
-  delay(10000000); // for raspi3b+
-  char user_input[BUFFER_SIZE];
+      // delay(1500000000); // for qemu
+      delay(10000000); // for raspi3b+
+      char user_input[BUFFER_SIZE];
 
-  // int i = 0;
-  // while(1){
-  //   user_input[i] = uart_async_recv();
-  //   if(i > uart_rx_max||user_input[i] == '\n')
-  //     break;
-  //   i++;
-  // }
-  // user_input[i] = '\0';
-  uart_async_gets(user_input,BUFFER_SIZE);
-  uart_async_sends("asynchornous receive: ");
-  uart_async_sends(user_input);
-  uart_async_send('\n');
+      // int i = 0;
+      // while(1){
+      //   user_input[i] = uart_async_recv();
+      //   if(i > uart_rx_max||user_input[i] == '\n')
+      //     break;
+      //   i++;
+      // }
+      // user_input[i] = '\0';
+      uart_async_gets(user_input,BUFFER_SIZE);
+      uart_async_sends("asynchornous receive: ");
+      uart_async_sends(user_input);
+      uart_async_send('\n');
+      delay(10000000);
 
-  delay(10000000);
-  
-  mini_uart_irq_disable();
+      mini_uart_irq_disable();
+      break;
+    case 2:
+      /* Need to open irq_test() in exec_task() in interrupt.c */
+      uart_sends("preemption test!\n");
+      mini_uart_irq_enable();
+      uart_async_sends("test\n");
+      mini_uart_irq_disable();
+      break;
+    default:
+      uart_sends("Undefined inupt.\n");
+      break;
+  }
 }
