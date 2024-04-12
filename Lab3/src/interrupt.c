@@ -4,9 +4,9 @@
 #include "heap.h"
 #include <stddef.h>
 
-/*            *
- * task queue *
- *            */
+/* task queue */
+
+static int irq_running = 0; // used to record the current irq priority
 
 irq_task_t* irq_task_head = NULL;
 
@@ -43,35 +43,74 @@ int add_irq_task(int (*callback)(void), uint64_t priority){
   return 0;
 }
 
-int exec_task(){
-  // uart_sends("In exec\n");
-  // disable_irq();
-  while(irq_task_head){
-    disable_irq();
-    irq_task_t *task = irq_task_head;
-    irq_task_head = irq_task_head->next;
-    
-    enable_irq();
-    task->callback();
-    // free
+/*  
+  Used to test preemption for irq task
+  High -> Low: change the priority of timer to 10
+  Low -> Hign: change the priority of timer to 50
+*/
+int flag = 0;
+void irq_test(){
+  if(flag < 3){
+    set_timeout("test", -1);
+    flag++;
+  }
+  return;
+}
+
+/*
+  if someone works
+    if the current task's priority is the largest:
+      directly do it and return;
+    else return;
+  else:
+    do all tasks, even someone add task, if the priority is lower, the task would add to the list;
+*/
+int exec_task(int priority){
+  int tmp = irq_running;
+  if(irq_running){
+    if(priority > irq_running){
+      disable_irq();
+      irq_task_t *task = irq_task_head;
+      irq_running = task->priority;
+      irq_task_head = irq_task_head->next;
+      enable_irq();
+      task->callback();
+      irq_running = tmp;
+    }
+    else return 0;
+  }
+  else{
+    while(irq_task_head){
+      disable_irq();
+      irq_task_t *task = irq_task_head;
+      irq_running = task->priority;
+      irq_task_head = irq_task_head->next;
+      enable_irq();
+      // irq_test();
+      task->callback();
+      // free
+    }
+    irq_running = 0;
   }
   return 0;
 }
 
 int irq_entry(){
   disable_irq();
+  int priority = 0;
   if(*IRQ_PEND1_REG & (1 << 29)){ // AUX INT
-    mini_uart_irq_handler();
+    priority = mini_uart_irq_handler();
   }
   else if(*CORE0_IRQ_SOURCE & 0x2){ // CNTPSIRQ INT
     // core_timer_handler();
     core_timer_disable();
-    add_irq_task(timer_irq_handler, 10);
+    priority = 10;
+    add_irq_task(timer_irq_handler, priority);
     core_timer_enable();
     // timer_irq_handler();
   }
   enable_irq();
-  exec_task();
+  exec_task(priority);
 
   return 0;
 }
@@ -154,7 +193,7 @@ int timer_irq_handler(){
   // uart_sends("In timer interrupt!!!\n");
   uint64_t current_time = get_time();
   uint64_t freq = get_freq();
-  
+
   // timer_t* current = timer_head;
   while(timer_head != NULL && timer_head->time <= current_time){
     uart_sends("========\n");
@@ -179,26 +218,27 @@ int timer_irq_handler(){
 }
 
 /*
-  mini uart interrupt
+  mini uart interrupt: receive and transmit.
+  Return Value: priority of each interrupt.
 */
-
 int mini_uart_irq_handler(){
   // uart_sends("mini_uart irq handler!!!\n");
+  int p = 0;
   if(*AUX_MU_IIR_REG & 0x2){
     // Transmitter
     *AUX_MU_IER_REG &= ~(0x2);
     // uart_sends("In tx interrupt!!!\n");
-    // uart_tx_handler();
-    add_irq_task(uart_tx_handler, 20);
+    p = 20;
+    add_irq_task(uart_tx_handler, p);
   }
   else if(*AUX_MU_IIR_REG & 0x4){
     // Receiver
     *AUX_MU_IER_REG &= ~(0x1);
     // uart_sends("In rx interrupt!!!\n");
-    add_irq_task(uart_rx_handler, 30);
-    // enable_tx_irq();
+    p = 30;
+    add_irq_task(uart_rx_handler, p);
   }
-  return 0;
+  return p;
 }
 
 void mini_uart_irq_enable(){
@@ -222,7 +262,13 @@ int uart_rx_handler(){
 
 int uart_tx_handler(){
   // *AUX_MU_IER_REG &= ~(0x2);
-
+  // uart_sends("=====start=====\n");
+  // unsigned int cycles = 1000000000; // test premmption for qemu
+  // unsigned int cycles = 10000000; // test premmption for raspi3b+
+  // while (cycles--)
+  // {
+  //   asm volatile("nop");
+  // }
   if(uart_tx_index != uart_tx_max){
     *AUX_MU_IO_REG = uart_tx_buffer[uart_tx_index];
     uart_tx_index = (uart_tx_index + 1) % BUFFER_SIZE;
@@ -232,5 +278,6 @@ int uart_tx_handler(){
     // *AUX_MU_IER_REG &= ~(1<<1);
     *AUX_MU_IER_REG &= ~(0x2);
   }
+  // uart_sends("======end======\n");
   return 0;
 }

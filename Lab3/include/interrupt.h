@@ -7,7 +7,6 @@
 #define IRQs1 (volatile unsigned int*)0x3f00b210 // 0x3f00b000+0x210
 #define DISABLE_IRQs1 	 (volatile unsigned int*)0x3f00b21c
 
-
 #define CORE0_TIMER_IRQ_CTRL 0x40000040 //?
 
 #define CORE0_IRQ_SOURCE (volatile unsigned int*)0x40000060
