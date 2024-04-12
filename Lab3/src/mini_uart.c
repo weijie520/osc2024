@@ -240,6 +240,7 @@ void uart_async_test(){
       uart_sends("preemption test!\n");
       mini_uart_irq_enable();
       uart_async_sends("test\n");
+      delay(10000000);
       mini_uart_irq_disable();
       break;
     default:
