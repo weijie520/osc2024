@@ -1,6 +1,7 @@
 SECTIONS
 {
     . = 0x80000;
+    kernel_start = .;
     .text.boot : { *(.text.boot) }
     .text :  { *(.text) }
     .rodata : { *(.rodata) }
@@ -9,5 +10,6 @@ SECTIONS
     bss_begin = .;
     .bss : { *(.bss*) }
     bss_end = .;
+    kernel_end = .;
 }
 bss_size = (bss_end - bss_begin) >> 3;
