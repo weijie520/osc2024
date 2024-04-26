@@ -90,6 +90,14 @@ int memcmp(const void *s1, const void *s2, int n){
   return 0;
 }
 
+void memset(void* ptr, int value, int n) {
+    unsigned char* p = (unsigned char*)ptr;
+    for (size_t i = 0; i < n; ++i) {
+        p[i] = (unsigned char)value;
+    }
+    return;
+}
+
 int hstr2int(const char* str, int len){
   int n = 0;
   while(len--){
