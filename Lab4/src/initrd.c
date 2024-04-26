@@ -4,6 +4,7 @@
 #include "devicetree.h"
 
 static void *archive_start = (void *)0x0; //0x08000000
+static void *archive_end = (void *)0x0;
 
 void initrd_list(){
   char *current = (char*)archive_start;
@@ -54,12 +55,16 @@ void initrd_cat(char *filename){
 }
 
 void initramfs_callback(void *node, char *propname){
-  if(strcmp(propname, "linux,initrd-start"))
-    return;
-
-  uint32_t tmp = *((uint32_t *)node);
-  archive_start = (void *)((uintptr_t)swap32(tmp));
+  if(!strcmp(propname, "linux,initrd-start")){
+    uint32_t tmp = *((uint32_t *)node);
+    archive_start = (void *)((uintptr_t)swap32(tmp));
+  }
+  if(!strcmp(propname, "linux,initrd-end")){
+    uint32_t tmp = *((uint32_t *)node);
+    archive_end = (void *)((uintptr_t)swap32(tmp));
+  }
 }
+
 
 void *fetch_exec(char *filename){
   char *current = (char*)archive_start;
@@ -81,6 +86,10 @@ void *fetch_exec(char *filename){
   return ((void*)0);
 }
 
-int get_initrd(){ 
-  return (intptr_t)archive_start;
+void *get_initrd_start(){ 
+  return archive_start;
+}
+
+void *get_initrd_end(){ 
+  return archive_end;
 }

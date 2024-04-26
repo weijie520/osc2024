@@ -21,7 +21,8 @@ typedef struct{
 
 void initrd_list();
 void initrd_cat(char *filename); //const char* filename
-int get_initrd();
+void* get_initrd_start();
+void* get_initrd_end();
 void initramfs_callback(void *node, char *propname);
 void* fetch_exec(char *filename);
 
