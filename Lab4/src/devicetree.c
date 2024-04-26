@@ -1,13 +1,13 @@
 #include "devicetree.h"
 #include "mini_uart.h"
 #include "string.h"
-// #include
+
+static void *dtb_end = (void *)0x0;
 
 uint32_t swap32(uint32_t n){
   return ((n >> 24) & 0xff) | ((n >> 8) & 0xff00) |
          ((n << 8) & 0xff0000) | ((n << 24) & 0xff000000);
 }
-
 
 void fdt_header_b2l(fdt_header* dtb){
   if(dtb->magic == 0xd00dfeed)
@@ -33,7 +33,7 @@ void parse_dtb(void *dtb){
 
   char *struct_block = (char *)((uintptr_t)header+header->off_dt_struct);
   char *string_block = (char *)((uintptr_t)header+header->off_dt_strings);
-  char *end_ptr = (char*)((uintptr_t)header+header->off_dt_struct+header->size_dt_struct);
+  char *dtb_end = (char*)((uintptr_t)header+header->off_dt_struct+header->size_dt_struct);
   uint32_t* token = (uint32_t*)struct_block;
   int padding = 0;
 
@@ -66,6 +66,10 @@ void parse_dtb(void *dtb){
         tmprop.nameoff = swap32(prop->nameoff);
         uart_sends("Property name: ");
         uart_sends(string_block+tmprop.nameoff);
+        if(memcmp(string_block+tmprop.nameoff, "spin", 4) == 0){
+          uart_sends("memory node\n");
+          for(long long i = 0; i < 10000000000; i++);
+        }
         uart_sendc('\n');
 
         struct_block += 8;
@@ -88,7 +92,7 @@ void parse_dtb(void *dtb){
     }
     token = (uint32_t*)struct_block;
   }
-  if(struct_block == end_ptr)
+  if(struct_block == dtb_end)
     uart_sends("Yes\n");
   else uart_sends("No\n");
 }
@@ -100,6 +104,7 @@ void fdt_traverse(void *dtb, void (*callback)(void *, char *)){
 
   char *struct_block = (char *)((uintptr_t)header+header->off_dt_struct);
   char *string_block = (char *)((uintptr_t)header+header->off_dt_strings);
+  dtb_end = (void *)((uintptr_t)header+header->off_dt_struct+header->size_dt_struct);
 
   uint32_t* token = (uint32_t*)struct_block;
   int padding = 0;
@@ -145,4 +150,8 @@ void fdt_traverse(void *dtb, void (*callback)(void *, char *)){
     }
     token = (uint32_t*)struct_block;
   }
+}
+
+void *get_dtb_end(){
+  return dtb_end;
 }

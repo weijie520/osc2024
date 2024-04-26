@@ -59,5 +59,6 @@ and the structure block to a 4-byte boundary */
 uint32_t swap32(uint32_t n);
 void parse_dtb(void *dtb);
 void fdt_traverse(void *dtb, void (*callback)(void *, char *));
+void *get_dtb_end();
 
 #endif
