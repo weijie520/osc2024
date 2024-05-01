@@ -71,7 +71,6 @@ char *strtok(char* str, const char* delimeter){
     else if(isdelim && start){
       *last++ = '\0';
       return start;
-      // last
     }
     last++;
   }
