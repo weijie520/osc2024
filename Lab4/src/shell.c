@@ -9,14 +9,16 @@
 #define BUF_LEN 256
 
 void shell_exec(){
-  char buffer[BUF_LEN + 1];
+  char buffer[BUF_LEN];
+  memset(buffer, 0, BUF_LEN);
   char *args[10];
 
   while (1){
     int argc = 0;
     uart_sends("# ");
     gets(buffer);
-
+    if(!strcmp(buffer, ""))
+      continue;
     char *token = strtok(buffer, " ");
     while(token){
       args[argc++] = token;
