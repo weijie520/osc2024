@@ -28,6 +28,8 @@ void list_add(int order, int index){
 
 void list_del(int order, int index){
   frame_t *block = &frame_array[index];
+  if(block->prev->next != block)
+    return;
   if(block->next == block){
     free_list[order] = NULL;
   }else{
