@@ -2,6 +2,7 @@
 #include "mini_uart.h"
 #include "timer.h"
 #include "heap.h"
+#include "memory.h"
 #include <stddef.h>
 
 /* task queue */
@@ -12,7 +13,7 @@ irq_task_t* irq_task_head = NULL;
 
 int add_irq_task(int (*callback)(void), uint64_t priority){
   // disable_irq();
-  irq_task_t* new_task = (irq_task_t*)simple_malloc(sizeof(irq_task_t));
+  irq_task_t* new_task = (irq_task_t*)kmalloc(sizeof(irq_task_t));
   if(!new_task){
     uart_sends("Fail malloc");
     return -1;
@@ -43,7 +44,7 @@ int add_irq_task(int (*callback)(void), uint64_t priority){
   return 0;
 }
 
-/*  
+/*
   Used to test preemption for irq task
   High -> Low: change the priority of timer to 10
   Low -> Hign: change the priority of timer to 50
@@ -89,6 +90,7 @@ int exec_task(int priority){
       // irq_test();
       task->callback();
       // free
+      kfree(task);
     }
     irq_running = 0;
   }
@@ -102,12 +104,10 @@ int irq_entry(){
     priority = mini_uart_irq_handler();
   }
   else if(*CORE0_IRQ_SOURCE & 0x2){ // CNTPSIRQ INT
-    // core_timer_handler();
     core_timer_disable();
     priority = 10;
     add_irq_task(timer_irq_handler, priority);
     core_timer_enable();
-    // timer_irq_handler();
   }
   enable_irq();
   exec_task(priority);
@@ -142,6 +142,7 @@ int lower_irq_entry(){
 
 void enable_irq(){
   asm volatile("msr    daifclr, #0xf;");
+  mini_uart_irq_enable();
 }
 
 void disable_irq(){
@@ -160,7 +161,6 @@ void core_timer_enable(){
     "mov x0, 2;"
     "ldr x1, =0x40000040;"
     "str w0, [x1];" // unmask timer interrupt
-    // :: "r" (CORE0_TIMER_IRQ_CTRL)
   );
 }
 
@@ -168,52 +168,22 @@ void core_timer_disable(){
   asm volatile("msr cntp_ctl_el0, %0" :: "r"(0));
 }
 
-// int core_timer_handler(){
-//   uart_sends("In timer interrupt!!!\n");
-//   uint64_t boottime = 0;
-//   uint64_t freq = 0;
-//   asm volatile(
-//     "mrs %0, cntpct_el0;"
-//     "mrs %1, cntfrq_el0;"
-//     // "mrs x0, cntfrq_el0;"
-//     "msr cntp_tval_el0, x0;"
-//     : "=r" (boottime), "=r" (freq)
-//     // "msr cntp_tval_el0, %0;"
-//   );
-//   uart_sendh(boottime/freq);
-//   uart_sendc('\n');
-//   uint64_t wait = freq * 2;
-//   asm volatile(
-//     "msr cntp_tval_el0, %0;" :: "r"(wait)
-//   );
-//   return 0;
-// }
-
 int timer_irq_handler(){
-  // uart_sends("In timer interrupt!!!\n");
   uint64_t current_time = get_time();
-  uint64_t freq = get_freq();
 
-  // timer_t* current = timer_head;
   while(timer_head != NULL && timer_head->time <= current_time){
-    uart_sends("========\n");
-    timer_head->callback((void*)timer_head->msg);
-    uart_sends("now: ");
-    uart_sendi(current_time);
-    uart_sends("\n========\n");
-    // uart_sendh(timer_head->time);
-    // current = current->next;
-    timer_head = timer_head->next;
-    // free(current)
+    timer_t* tmp = timer_head;
+    tmp->callback((void*)tmp->data);
+    timer_head = tmp->next;
+    kfree(tmp);
   }
 
   if(timer_head){
-    asm volatile("msr cntp_cval_el0, %0;" :: "r"(timer_head->time*freq));
+    asm volatile("msr cntp_cval_el0, %0;" :: "r"((timer_head->time)));
   }
   else{
     asm volatile("msr cntp_ctl_el0,%0"::"r"(0));
   }
-  // enable_irq();
   return 0;
 }
 
@@ -261,7 +231,6 @@ int uart_rx_handler(){
 }
 
 int uart_tx_handler(){
-  // *AUX_MU_IER_REG &= ~(0x2);
   // uart_sends("=====start=====\n");
   // unsigned int cycles = 1000000000; // test premmption for qemu
   // unsigned int cycles = 10000000; // test premmption for raspi3b+
@@ -275,7 +244,6 @@ int uart_tx_handler(){
     *AUX_MU_IER_REG |= (0x2);
   }
   else{
-    // *AUX_MU_IER_REG &= ~(1<<1);
     *AUX_MU_IER_REG &= ~(0x2);
   }
   // uart_sends("======end======\n");
