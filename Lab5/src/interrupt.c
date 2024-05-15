@@ -4,6 +4,7 @@
 #include "heap.h"
 #include "memory.h"
 #include "thread.h"
+#include "signal.h"
 #include <stddef.h>
 
 /* task queue */
@@ -116,6 +117,7 @@ int irq_entry(){
   enable_irq();
   exec_task(priority);
 
+  signal_check();
   return 0;
 }
 
@@ -135,6 +137,8 @@ int lower_irq_entry(){
   }
   enable_irq();
   exec_task(priority);
+
+  signal_check();
   return 0;
 }
 
