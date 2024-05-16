@@ -38,9 +38,6 @@ int sys_exec(const char *name, char *const argv[]){
 
   void *p = kmalloc(program_size);
 
-  // for(int i = 0; i < program_size; i++){
-  //   *((char*)p+i) = *((char*)exec+i);
-  // }
   memcpy((void*)p, (void*)exec, program_size);
 
   thread *t = get_current();
@@ -76,10 +73,10 @@ int sys_fork(trapframe *tf){
 
   // user stack copy
   memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
-  
+
   // kernel stack copy
   memcpy((void*)child->kernel_stack, (void*)cur->kernel_stack, THREAD_STACK_SIZE);
-  
+
   // signal handler copy
   for(int i = 0; i < MAX_SIGNAL+1; i++){
     child->signal_handler[i] = cur->signal_handler[i];
@@ -129,6 +126,7 @@ void posix_kill(int pid, int signum){
 
 void sys_sigreturn(unsigned long sp_el0){
   thread *t = get_current();
+  t->signal_processing = 0;
   kfree((void*)((sp_el0 % THREAD_STACK_SIZE)?(sp_el0 & ~(THREAD_STACK_SIZE-1)):(sp_el0 - THREAD_STACK_SIZE)));
   restore_context(&t->signal_regs);
 }
