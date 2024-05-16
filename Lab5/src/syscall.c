@@ -1,11 +1,14 @@
 #include "exception.h"
 #include "initrd.h"
+#include "string.h"
 #include "mailbox.h"
 #include "mini_uart.h"
 #include "interrupt.h"
 #include "memory.h"
 #include "syscall.h"
 #include "thread.h"
+
+extern void restore_context(callee_reg* regs);
 
 int sys_getpid(){
   thread *t = get_current();
@@ -30,18 +33,22 @@ size_t sys_uartwrite(char buf[], size_t size){
 }
 
 int sys_exec(const char *name, char *const argv[]){
-  void* exec = fetch_exec(name);
+  void* exec = fetch_exec((char*)name);
   int program_size = get_exec_size(name);
 
   void *p = kmalloc(program_size);
 
-  for(int i = 0; i < program_size; i++){
-    *((char*)p+i) = *((char*)exec+i);
-  }
+  // for(int i = 0; i < program_size; i++){
+  //   *((char*)p+i) = *((char*)exec+i);
+  // }
+  memcpy((void*)p, (void*)exec, program_size);
 
   thread *t = get_current();
+  for(int i = 0; i < MAX_SIGNAL+1; i++){
+    t->signal_handler[i] = 0;
+  }
   t->regs.lr = (unsigned long)p;
-  core_timer_enable();
+
   asm volatile(
     "msr tpidr_el1, %0;"
     "mov x4, 0x0;" // 001111000000
@@ -68,14 +75,16 @@ int sys_fork(trapframe *tf){
   int child_tid = child->tid;
 
   // user stack copy
-  for(int i = 0; i < THREAD_STACK_SIZE; i++){
-    *((char*)child->stack+i) = *((char*)cur->stack+i);
-  }
+  memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
+  
   // kernel stack copy
-  for(int i = 0; i < THREAD_STACK_SIZE; i++){
-    *((char*)child->kernel_stack+i) = *((char*)cur->kernel_stack+i);
+  memcpy((void*)child->kernel_stack, (void*)cur->kernel_stack, THREAD_STACK_SIZE);
+  
+  // signal handler copy
+  for(int i = 0; i < MAX_SIGNAL+1; i++){
+    child->signal_handler[i] = cur->signal_handler[i];
   }
-  child->handler = cur->handler;
+
   unsigned long cur_sp;
   asm volatile("mov %0, sp" : "=r"(cur_sp));
   child->regs.sp = (unsigned long)(cur_sp + ((void*)child->kernel_stack - cur->kernel_stack));
@@ -106,6 +115,24 @@ void sys_kill(int pid){
   thread_kill(pid);
 }
 
+void sys_signal(int signum, void (*handler)()){
+  thread *t = get_current();
+  t->signal_handler[signum] = handler;
+}
+
+void posix_kill(int pid, int signum){
+  thread *t = get_thread(pid);
+  if(t){
+    t->signal_pending |= 1 << signum;
+  }
+}
+
+void sys_sigreturn(unsigned long sp_el0){
+  thread *t = get_current();
+  kfree((void*)((sp_el0 % THREAD_STACK_SIZE)?(sp_el0 & ~(THREAD_STACK_SIZE-1)):(sp_el0 - THREAD_STACK_SIZE)));
+  restore_context(&t->signal_regs);
+}
+
 int getpid(){
   int ret;
   asm volatile("mov x8, 0;"
@@ -127,6 +154,13 @@ int fork(){
 void exit(int status){
   asm volatile("mov x8, 5;"
                "svc	0;");
+}
+
+void sigreturn(){
+  asm volatile(
+    "mov x8, 20;"
+    "svc 0;"
+  );
 }
 
 /* For test */
@@ -209,6 +243,6 @@ void fork_test(){
 }
 
 void sys_fork_test(){
-  thread *t = thread_create(jump_to_el0);
+  thread_create(jump_to_el0);
   idle();
 }

@@ -48,6 +48,27 @@ void dequeue_t(thread **head, thread *t){
   }
 }
 
+thread *dequeue_tid(thread **head, int tid){
+  thread *tmp = *head;
+  do{
+    if(tmp->tid == tid){
+      if(tmp->next == tmp){
+        *head = 0;
+      }else{
+        tmp->prev->next = tmp->next;
+        tmp->next->prev = tmp->prev;
+        *head = tmp->next;
+      }
+      return tmp;
+    }
+    tmp = tmp->next;
+  }while(tmp != *head);
+  uart_sends("No such thread tid: ");
+  uart_sendi(tid);
+  uart_sends("\n");
+  return 0;
+}
+
 thread *front(thread *q){
   if(!q) return 0;
   return q;
@@ -73,14 +94,32 @@ thread *thread_create(void (*func)(void)){
   thread *t = (thread *)kmalloc(sizeof(thread));
   t->tid = max_tid++;
   t->state = TASK_RUNNING;
-  t->handler = 0;
   t->regs.lr = (unsigned long)func;
   t->stack = kmalloc(THREAD_STACK_SIZE);
   t->kernel_stack = kmalloc(THREAD_STACK_SIZE);
   t->regs.sp = (unsigned long)((char*)t->stack + 0x1000);
   t->regs.fp = t->regs.sp;
+
+  // signal
+  for(int i = 0; i < MAX_SIGNAL+1; i++){
+    t->signal_handler[i] = 0;
+  }
+  t->signal_processing = 0;
+  t->signal_pending = 0;
+
   enqueue(&running_queue, t);
   return t;
+}
+
+thread *get_thread(int tid){
+  thread *tmp = running_queue;
+  do{
+    if(tmp->tid == tid){
+      return tmp;
+    }
+    tmp = tmp->next;
+  }while(tmp != running_queue);
+  return 0;
 }
 
 void schedule(){
@@ -120,18 +159,14 @@ void thread_exit(){
   schedule();
 }
 
-int thread_kill(int tid){
-  thread *tmp = running_queue;
-  while(tmp){
-    if(tmp->tid == tid){
-      tmp->state = TASK_ZOMBIE;
-      dequeue_t(&running_queue, tmp);
-      enqueue(&terminated_queue, tmp);
-      return 0;
-    }
-    tmp = tmp->next;
-  }
-  return 1;
+void thread_kill(int tid){
+  thread *t = get_thread(tid);
+  if(!t) return;
+  t->state = TASK_ZOMBIE;
+  running_queue = t->next; // rearrange the queue
+  dequeue_t(&running_queue, t);
+  enqueue(&terminated_queue, t);
+  schedule();
 }
 
 /* Used to test */

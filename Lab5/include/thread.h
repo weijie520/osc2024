@@ -1,6 +1,8 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 
+#define MAX_SIGNAL 9
+
 #define TASK_RUNNING 0
 #define TASK_WATING 1
 #define TASK_ZOMBIE 2
@@ -27,30 +29,31 @@ typedef struct thread{
   callee_reg regs;
   int tid;
   int state;
-  void *handler;
   void *stack;
   void *kernel_stack;
+
+  /* signal */
+  void (*signal_handler[MAX_SIGNAL+1])();
+  int signal_processing;
+  int signal_pending;
+  callee_reg signal_regs;
+
+  /* queue */
   struct thread *next;
   struct thread *prev;
 } thread;
-
-typedef struct queue{
-  thread *t;
-  struct queue *prev;
-  struct queue *next;
-}queue;
 
 extern void switch_to(thread *current, thread *next);
 extern thread* get_current();
 
 void thread_init();
-
 thread *thread_create(void (*func)(void));
+void thread_exit();
+void thread_kill(int tid);
+thread *get_thread(int tid);
 
 void kill_zombies();
 void idle();
-void thread_exit();
-int thread_kill(int tid);
 
 void schedule();
 
