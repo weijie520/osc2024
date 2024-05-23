@@ -52,6 +52,8 @@ void thread_exit();
 void thread_kill(int tid);
 thread *get_thread(int tid);
 
+// void thread_wrapper(void (*func)());
+
 void kill_zombies();
 void idle();
 

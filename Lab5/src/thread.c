@@ -94,6 +94,7 @@ thread *thread_create(void (*func)(void)){
   thread *t = (thread *)kmalloc(sizeof(thread));
   t->tid = max_tid++;
   t->state = TASK_RUNNING;
+  // TODO: Implement implicit thread exit
   t->regs.lr = (unsigned long)func;
   t->stack = kmalloc(THREAD_STACK_SIZE);
   t->kernel_stack = kmalloc(THREAD_STACK_SIZE);
@@ -110,6 +111,12 @@ thread *thread_create(void (*func)(void)){
   enqueue(&running_queue, t);
   return t;
 }
+
+// TODO: Implement implicit thread exit
+// void thread_wrapper(void (*func)()){
+//   func();
+//   thread_exit();
+// }
 
 thread *get_thread(int tid){
   thread *tmp = running_queue;
@@ -180,7 +187,6 @@ void foo(){
         for(int j = 0; j < 1000000; j++);
         schedule();
     }
-    thread_exit();
 }
 
 void thread_test(){
