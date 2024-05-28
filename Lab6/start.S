@@ -1,3 +1,4 @@
+#include "include/mmu.h"
 .section ".text.boot"
 
 .global _start
@@ -14,8 +15,48 @@ _start:
 /* set stack pointer */
   ldr x1, =_start
   mov sp, x1
-//msr SP_EL1, x1
 
+/* enable mmu */
+  ldr x1, = TCR_CONFIG_DEFAULT
+  msr tcr_el1, x1
+
+  ldr x1, =(\
+(MAIR_DEVICE_nGnRnE<<(MAIR_IDX_DEVICE_nGnRnE*8))|\
+(MAIR_NORMAL_NOCACHE<<(MAIR_IDX_NORMAL_NOCACHE*8))\
+)
+  msr mair_el1, x1
+
+  mov x1, 0 // PGD's page frame at 0x0
+  mov x2, 0x1000 // PUD's page frame at 0x1000
+
+  ldr x3, = BOOT_PGD_ATTR
+  orr x3, x2, x3 // combine the physical address of next level page with attribute.
+  str x3, [x1]
+
+  ldr x3, = BOOT_PUD_ATTR
+  mov x4, 0x00000000
+  orr x4, x3, x4
+  str x4, [x2]// 1st 1GB mapped by the 1st entry of PUD
+  mov x4, 0x40000000
+  orr x4, x3, x4
+  str x4, [x2, 8]// 2nd 1GB mapped by the 2nd entry of PUD
+
+  msr ttbr0_el1, x1 // load PGD to the bottom translation-based register.
+
+  mrs x3, sctlr_el1
+  orr x3, x3, 1
+  msr sctlr_el1, x3 // enable MMU, cache remains disabled
+
+  msr ttbr0_el1, x1
+  msr ttbr1_el1, x1 // also load PGD to the upper translation based register.
+  mrs x3, sctlr_el1
+  orr x3, x3, 1
+  msr sctlr_el1, x3
+
+  ldr x2, = boot_rest // indirect branch to the virtual address
+  br x2
+
+boot_rest:
 /* clear bss section */
   ldr x1, =bss_begin
   ldr w2, =bss_size
