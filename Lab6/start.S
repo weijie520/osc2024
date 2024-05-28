@@ -26,32 +26,54 @@ _start:
 )
   msr mair_el1, x1
 
-  mov x1, 0 // PGD's page frame at 0x0
-  mov x2, 0x1000 // PUD's page frame at 0x1000
+  mov x1, 0x1000 // PGD's page frame at 0x1000
+  mov x2, 0x2000 // PUD's page frame at 0x2000
 
   ldr x3, = BOOT_PGD_ATTR
   orr x3, x2, x3 // combine the physical address of next level page with attribute.
   str x3, [x1]
 
-  ldr x3, = BOOT_PUD_ATTR
-  mov x4, 0x00000000
+  ldr x3, = BOOT_PGD_ATTR
+  mov x4, 0x3000 // set PMD's page frame at 0x3000, used to fine grain 0x0~0x3FFFFFFF(RAM and GPU peripherals)
   orr x4, x3, x4
   str x4, [x2]// 1st 1GB mapped by the 1st entry of PUD
-  mov x4, 0x40000000
+  ldr x3, = BOOT_DEVICE_ATTR
+  mov x4, 0x40000000 // should be device memory
   orr x4, x3, x4
   str x4, [x2, 8]// 2nd 1GB mapped by the 2nd entry of PUD
 
+  mov x2, 0x00000000
+  mov x3, 0x3f000000
+  ldr x4, = BOOT_NORMAL_ATTR
+  ldr x5, = BOOT_DEVICE_ATTR
+  mov x6, 512 // 512 entries in a PMD (1GB/2MB = 512)
+  mov x7, 0x3000 // PMD's address
+
+fine_grain_ram_mmio:
+  cbz x6, boot_mmu
+  cmp x2, x3
+  bge mmio_region
+
+normal_ram:
+  orr x8, x2, x4
+  str x8, [x7], #8
+  add x2, x2, #0x200000 // 2MB
+  sub x6, x6, 1
+  b fine_grain_ram_mmio
+
+mmio_region:
+  orr x8, x2, x5
+  str x8, [x7], #8
+  add x2, x2, #0x200000 // 2MB
+  sub x6, x6, 1
+  b fine_grain_ram_mmio
+
+boot_mmu:
   msr ttbr0_el1, x1 // load PGD to the bottom translation-based register.
-
-  mrs x3, sctlr_el1
-  orr x3, x3, 1
-  msr sctlr_el1, x3 // enable MMU, cache remains disabled
-
-  msr ttbr0_el1, x1
   msr ttbr1_el1, x1 // also load PGD to the upper translation based register.
   mrs x3, sctlr_el1
   orr x3, x3, 1
-  msr sctlr_el1, x3
+  msr sctlr_el1, x3 // enable MMU, cache remains disabled
 
   ldr x2, = boot_rest // indirect branch to the virtual address
   br x2
