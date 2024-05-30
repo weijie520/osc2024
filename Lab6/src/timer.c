@@ -46,7 +46,6 @@ int add_timer(uint64_t time, void (*callback)(void*), void* data){
   new_timer->data = data;
   new_timer->next = NULL;
 
-  // disable_irq();
   timer_t* current = timer_head;
   timer_t* prev = NULL;
 
@@ -63,8 +62,7 @@ int add_timer(uint64_t time, void (*callback)(void*), void* data){
     new_timer->next = current;
     prev->next = new_timer;
   }
-  // enable_irq();
-  core_timer_enable();
+
   return 0;
 }
 

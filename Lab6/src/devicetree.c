@@ -119,7 +119,7 @@ void fdt_traverse(void *dtb, void (*callback)(void *, char *)){
         // padding = 0;
         int name_len = strlen((const char*)struct_block);
         name_len++;
-        
+
         padding = (4-(name_len%4))%4;
         struct_block += (name_len+padding);
         break;
@@ -139,7 +139,7 @@ void fdt_traverse(void *dtb, void (*callback)(void *, char *)){
 
         if(tmprop.len == 0){
           break;
-        }       
+        }
         padding = (4-(tmprop.len%4))%4;
         struct_block += (padding+tmprop.len); // (padding - 1)?
 
