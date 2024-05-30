@@ -2,14 +2,15 @@
 #define __INTERRUPT_H__
 
 #include <stdint.h>
+#include "vm.h"
 
-#define IRQ_PEND1_REG (volatile unsigned int*)0x3f00b204
-#define IRQs1 (volatile unsigned int*)0x3f00b210 // 0x3f00b000+0x210
-#define DISABLE_IRQs1 	 (volatile unsigned int*)0x3f00b21c
+#define IRQ_PEND1_REG ((volatile unsigned int*)(VIRT_OFFSET + 0x3f00b204))
+#define IRQs1 ((volatile unsigned int*)(VIRT_OFFSET + 0x3f00b210)) // 0x3f00b000+0x210
+#define DISABLE_IRQs1 	 ((volatile unsigned int*)(VIRT_OFFSET + 0x3f00b21c))
 
-#define CORE0_TIMER_IRQ_CTRL 0x40000040 //?
+#define CORE0_TIMER_IRQ_CTRL (VIRT_OFFSET + 0x40000040) //?
 
-#define CORE0_IRQ_SOURCE (volatile unsigned int*)0x40000060
+#define CORE0_IRQ_SOURCE ((volatile unsigned int*)(VIRT_OFFSET + 0x40000060))
 
 typedef struct irq_task{
   uint32_t priority;

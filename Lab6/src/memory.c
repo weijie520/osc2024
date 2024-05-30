@@ -3,9 +3,8 @@
 #include "heap.h"
 #include "memory.h"
 
-#define BASE_ADDRESS 0x0
+#define BASE_ADDRESS 0xffff000000000000
 
-// static frame_t *frame_array;
 static frame_t *frame_array;
 static frame_t *free_list[MAX_ORDER + 1];
 static kmem_cache *cache_list[MAX_SLAB_ORDER];
@@ -99,7 +98,7 @@ void coalesce(int index, unsigned int order){
 
   frame_array[merge_index].order = merge_order;
   list_add(merge_order, merge_index);
-  
+
   // uart_sends("coalesce: ");
   // uart_sendh(index*PAGE_SIZE+BASE_ADDRESS);
   // uart_sends("~");

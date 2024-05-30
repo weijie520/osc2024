@@ -8,7 +8,7 @@
 #include "timer.h"
 #include "memory.h"
 #include "thread.h"
-#include "syscall.h"
+#include "vm.h"
 
 extern int kernel_start;
 extern int kernel_end;
@@ -24,16 +24,15 @@ void main(void* dtb_ptr){
     core_timer_enable();
     buddy_init();
 
-    reserve((void *)0x0, (void *)0x1000); // spin table
+    reserve((void *)phys_to_virt(0x0), (void *)phys_to_virt((void*)0x3fff)); // spin table && PGD && PUD && PMD
     reserve((void *)((char*)&kernel_start-0x20000), (void *)((char*)&kernel_start-0x0001)); // stack
     reserve((void *)&kernel_start, (void *)&kernel_end); // kernel
-    reserve(get_initrd_start(), get_initrd_end()); // initrd
-    reserve(dtb_ptr, get_dtb_end()); // dtb
+    reserve((void *)phys_to_virt(get_initrd_start()), (void *)phys_to_virt(get_initrd_end())); // initrd
+    reserve((void *)phys_to_virt(dtb_ptr), (void *)phys_to_virt(get_dtb_end())); // dtb
     reserve((void *)&bss_end, heap_end); // heap
 
     kmem_cache_init();
     thread_init();
-
 
     shell_exec();
 }
