@@ -1,9 +1,8 @@
 #include "thread.h"
 #include "memory.h"
-#include "timer.h"
 #include "mini_uart.h"
-#include "shell.h"
-#include "interrupt.h"
+#include "string.h"
+#include "vm.h"
 
 static int max_tid = 0;
 
@@ -98,8 +97,13 @@ thread *thread_create(void (*func)(void)){
   t->regs.lr = (unsigned long)func;
   t->stack = kmalloc(THREAD_STACK_SIZE);
   t->kernel_stack = kmalloc(THREAD_STACK_SIZE);
-  t->regs.sp = (unsigned long)((char*)t->stack + 0x1000);
+  t->kernel_stack = (void*)t->kernel_stack;
+  t->regs.sp = (unsigned long)((char*)t->stack + THREAD_STACK_SIZE);
   t->regs.fp = t->regs.sp;
+
+  t->regs.pgd = (unsigned long)alloc_pages(0); // allocate a page table for the thread
+  memset((void*)(void*)t->regs.pgd, 0, PAGE_SIZE);
+  t->regs.pgd = virt_to_phys((void*)t->regs.pgd);
 
   // signal
   for(int i = 0; i < MAX_SIGNAL+1; i++){
@@ -187,6 +191,7 @@ void foo(){
         for(int j = 0; j < 1000000; j++);
         schedule();
     }
+    thread_exit();
 }
 
 void thread_test(){
