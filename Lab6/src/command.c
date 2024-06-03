@@ -9,6 +9,7 @@
 #include "timer.h"
 #include "thread.h"
 #include "syscall.h"
+#include "vm.h"
 
 Command commands[] = {
     {"help", "print all available commands.", help},
@@ -76,16 +77,17 @@ int exec(void* args[]){
   if(exec_data){
     unsigned int size = get_exec_size();
     void *p = kmalloc(size);
-    memcpy((void*)p, exec_data, get_exec_size());
+    memcpy((void*)p, exec_data, size);
     thread *t = thread_create(p);
+    t->stack = kmalloc(THREAD_STACK_SIZE);
 
-    map_pages((pagetable_t)t->regs.pgd, 0x0, virt_to_phys(p), size, 0); // todo: attr
-    map_pages((pagetable_t)t->regs.pgd, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0); // todo: attr
+    add_vma(&t->vma_list, 0x0, virt_to_phys(p), size, 0b101);
+    add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
+    add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x1000000, 0b111);
 
     t->regs.lr = 0x0;
     t->regs.sp = 0xfffffffff000;
     t->regs.fp = t->regs.sp;
-
     asm volatile(
       "msr tpidr_el1, %0;"
       "msr spsr_el1, xzr;" // spsr_el1 bit[9:6] are D, A, I, and F; bit[3:0]: el0t

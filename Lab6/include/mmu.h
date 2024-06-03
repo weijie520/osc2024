@@ -16,8 +16,13 @@
 #define PD_TABLE 0b11
 #define PD_BLOCK 0b01
 #define PD_PAGE 0b11
-#define USER_ACCESS (1 << 6)
-#define PD_ACCESS (1 << 10)
+
+#define USER_ACCESS (1 << 6) // 0: only kernel access, 1: kernel/user access
+#define PD_RDONLY (1 << 7) // 0: read-write, 1: read-only
+#define PD_ACCESS (1 << 10) // a page fault will be generated if not set
+#define PD_KNX (1L << 53) // non-executable in EL1
+#define PD_UNX (1L << 54) // non-executable in EL0
+
 #define BOOT_PGD_ATTR PD_TABLE
 #define BOOT_PUD_ATTR (PD_ACCESS | (MAIR_IDX_DEVICE_nGnRnE << 2) | PD_BLOCK)
 #define BOOT_NORMAL_ATTR (PD_ACCESS | (MAIR_IDX_NORMAL_NOCACHE << 2) | PD_BLOCK)
