@@ -39,6 +39,9 @@ typedef struct thread{
   int signal_pending;
   callee_reg signal_regs;
 
+  /* vma */
+  struct vm_area* vma_list;
+
   /* queue */
   struct thread *next;
   struct thread *prev;
