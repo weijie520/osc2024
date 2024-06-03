@@ -16,6 +16,7 @@ void sys_kill(int pid);
 void sys_signal(int signum, void (*handler)());
 void posix_kill(int pid, int signum);
 void sys_sigreturn();
+void* sys_mmap(void* addr, unsigned long len, int prot, int flags, int fd, int file_offset);
 
 /* Wrapper of system call */
 int getpid();
