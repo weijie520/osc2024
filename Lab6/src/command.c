@@ -83,7 +83,7 @@ int exec(void* args[]){
 
     add_vma(&t->vma_list, 0x0, virt_to_phys(p), size, 0b101);
     add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
-    add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x1000000, 0b111);
+    add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
 
     t->regs.lr = 0x0;
     t->regs.sp = 0xfffffffff000;

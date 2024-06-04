@@ -54,7 +54,7 @@ int sys_exec(const char *name, char *const argv[]){
   // memset(t->stack, 0, THREAD_STACK_SIZE);
   add_vma(&t->vma_list, 0x0, virt_to_phys(p), program_size, 0b101);
   add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
-  add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x1000000, 0b111);
+  add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
   // map_pages((pagetable_t)t->regs.pgd, 0x0, virt_to_phys(t->code), program_size, 0);
   // map_pages((pagetable_t)t->regs.pgd, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0);
   // map_pages((pagetable_t)t->regs.pgd, 0x3c000000, 0x3c000000, 0x1000000, 0);
@@ -99,14 +99,14 @@ int sys_fork(trapframe *tf){
   // child->stack = kmalloc(THREAD_STACK_SIZE);
   // user stack copy
   // memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
-  for(int i = 0; i < 100000000; i++);
+  // for(int i = 0; i < 100000000; i++);
   // kernel stack copy
   memcpy((void*)child->kernel_stack, (void*)cur->kernel_stack, THREAD_STACK_SIZE);
 
   // vma_list copy
   // add_vma(&child->vma_list, 0xffffffffb000, virt_to_phys(child->stack), THREAD_STACK_SIZE, 0b111);
   copy_vma_list(&child->vma_list, cur->vma_list);
-  add_vma(&child->vma_list, 0x3c000000, 0x3c000000, 0x1000000, 0b111);
+  add_vma(&child->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
   // memcpy((void*)phys_to_virt((void*)child->regs.pgd), (void*)phys_to_virt((void*)cur->regs.pgd), 0x1000);
   // child->code = kmalloc(cur->code_size);
   // child->code_size = cur->code_size;
@@ -153,7 +153,7 @@ int sys_mbox_call(unsigned char ch, unsigned int *mbox){
     }
 
     unsigned long phys = (*pte & 0xfffffffff000) | ((unsigned long)mbox & 0xfff);
-    for(long long i = 0; i < 100000000; i++);
+    // for(long long i = 0; i < 100000000; i++);
     return mailbox_call(ch, (unsigned int *)phys_to_virt((void*)phys));
   }
 
