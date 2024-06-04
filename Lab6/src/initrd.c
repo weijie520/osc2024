@@ -16,7 +16,6 @@ void initrd_list(){
     head = (cpio_header*)current;
     int filesize = hstr2int(head->c_filesize,8);
     int namesize = hstr2int(head->c_namesize,8);
-    // uart_sends("hi\n");
     int padding = (4 - ((filesize+namesize+sizeof(cpio_header))%4))%4;
 
     for(int i = 0; i < namesize; i++){
@@ -68,7 +67,7 @@ void initramfs_callback(void *node, char *propname){
 
 
 void *fetch_exec(char *filename){
-  char *current = (char*)archive_start;
+  char *current = (char*)phys_to_virt(archive_start);
   cpio_header* head;
 
   while(!memcmp(current,"070701",6) && memcmp(current+sizeof(cpio_header),"TRAILER!!!",10)){
