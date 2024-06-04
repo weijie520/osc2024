@@ -18,6 +18,7 @@ typedef struct frame{
   char status;
   char order;
   int cache_order;
+  int ref_count;
   struct frame *next;
   struct frame *prev;
 } frame_t;

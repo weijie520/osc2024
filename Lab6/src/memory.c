@@ -126,6 +126,7 @@ void buddy_init(){
     frame_array[i].status = MEMORY_FREE;
     frame_array[i].order = FRAME_BODY;
     frame_array[i].cache_order = -1;
+    frame_array[i].ref_count = 0;
   }
 
   for(int i = 0; i <= MAX_ORDER; i++){
@@ -184,6 +185,7 @@ void *alloc_pages(int order){
   }
 
   frame_array[index].status = MEMORY_USED;
+  frame_array[index].ref_count = 1;
   list_del(order, index);
   // uart_sends("------------------------\nallocate: ");
   // uart_sendh(index*PAGE_SIZE+BASE_ADDRESS);
@@ -409,3 +411,15 @@ void kfree(void *address){
   }
 }
 
+/* */
+void increment_ref_count(void *address){
+  int index = ((unsigned long)address - BASE_ADDRESS) / PAGE_SIZE;
+  frame_array[index].ref_count++;
+}
+
+void decrement_ref_count(void *address){
+  int index = ((unsigned long)address - BASE_ADDRESS) / PAGE_SIZE;
+  frame_array[index].ref_count--;
+  if(frame_array[index].ref_count == 0)
+    free_pages(address);
+}
