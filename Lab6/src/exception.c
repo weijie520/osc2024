@@ -7,36 +7,45 @@
 #include "vm.h"
 
 int exception_entry(){
-  uart_sends("exception entry!\n");
+  unsigned long long esr_el1;
+  asm volatile("mrs %0, esr_el1;" : "=r" (esr_el1));
+  int ec = esr_el1 >> 26;
+  if(ec == 0b100001){
+    // uart_sends("Instruction Abort\n");
+    page_fault_handler();
+  }
+  else if(ec == 0b100101){
+    // uart_sends("Data Abort\n");
+    page_fault_handler();}
+  else{
+    uart_sends("exception entry!\n");
+    unsigned long long spsr_el1, elr_el1, far_el1;
 
-  unsigned long long spsr_el1, elr_el1, esr_el1, far_el1;
+    asm volatile(
+      "mrs %0, spsr_el1;"
+      "mrs %1, elr_el1;"
+      "mrs %2, far_el1;"
+      : "=r" (spsr_el1), "=r" (elr_el1), "=r" (far_el1)
+    );
 
-  asm volatile(
-    "mrs %0, spsr_el1;"
-    "mrs %1, elr_el1;"
-    "mrs %2, esr_el1;"
-    "mrs %3, far_el1;"
-     : "=r" (spsr_el1), "=r" (elr_el1), "=r" (esr_el1), "=r" (far_el1)
-  );
-
-  uart_sends("spsr_el1: ");
-  uart_sendl(spsr_el1);
-  uart_sendc('\n');
-  uart_sends("elr_el1: ");
-  uart_sendl(elr_el1);
-  uart_sendc('\n');
-  uart_sends("esr_el1: ");
-  uart_sendl(esr_el1);
-  uart_sendc('\n');
-  uart_sends("far_el1: ");
-  uart_sendl(far_el1);
-  uart_sendc('\n');
-  for(long long i = 0; i < 100000000; i++);
+    uart_sends("spsr_el1: ");
+    uart_sendl(spsr_el1);
+    uart_sendc('\n');
+    uart_sends("elr_el1: ");
+    uart_sendl(elr_el1);
+    uart_sendc('\n');
+    uart_sends("esr_el1: ");
+    uart_sendl(esr_el1);
+    uart_sendc('\n');
+    uart_sends("far_el1: ");
+    uart_sendl(far_el1);
+    uart_sendc('\n');
+    for(long long i = 0; i < 100000000; i++);
+  }
   return 0;
 }
 
 int lower_exception_entry(trapframe *tf){
-  // uart_sends("omg!\n");
   unsigned long long esr_el1;
   asm volatile("mrs %0, esr_el1;" : "=r" (esr_el1));
   int ec = esr_el1 >> 26;
@@ -88,18 +97,37 @@ int lower_exception_entry(trapframe *tf){
     }
   }
   else if(ec == 0b100000){
-    uart_sends("Instruction Abort\n");
+    // uart_sends("Instruction Abort\n");
     page_fault_handler();
   }
   else if(ec == 0b100100){
-    uart_sends("Data Abort\n");
+    // uart_sends("Data Abort\n");
     page_fault_handler();
   }
   else{
-    uart_sends("Unknown exception: ");
-    uart_sendh(ec);
-    uart_sends("\n");
+    uart_sends("Unknown exception: \n");
+    unsigned long long spsr_el1, elr_el1, far_el1;
+
+    asm volatile(
+      "mrs %0, spsr_el1;"
+      "mrs %1, elr_el1;"
+      "mrs %2, far_el1;"
+      : "=r" (spsr_el1), "=r" (elr_el1), "=r" (far_el1)
+    );
+
+    uart_sends("spsr_el1: ");
+    uart_sendl(spsr_el1);
+    uart_sendc('\n');
+    uart_sends("elr_el1: ");
+    uart_sendl(elr_el1);
+    uart_sendc('\n');
+    uart_sends("esr_el1: ");
+    uart_sendl(esr_el1);
+    uart_sendc('\n');
+    uart_sends("far_el1: ");
+    uart_sendl(far_el1);
+    uart_sendc('\n');
+    for(long long i = 0; i < 100000000; i++);
   }
-  // for(long long i = 0; i < 100000000; i++);
   return 0;
 }

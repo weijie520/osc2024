@@ -100,16 +100,18 @@ void copy_vma_list(vm_area_t **dst, vm_area_t *src){
   vm_area_t *cur = src;
   do{
     // skip peripheral
-    if(cur->va == 0x3c000000 || cur->va == 0x100000) {
-      cur = cur->next;
-      continue;
-    }
-    void *pm = kmalloc(cur->sz);
-    memcpy(pm, (void*)phys_to_virt((void*)cur->pa), cur->sz);
-    add_vma(dst, cur->va, virt_to_phys(pm), cur->sz, cur->flags);
-    // add_vma(dst, cur->va, cur->pa, cur->sz, cur->flags);
-    // if(cur->va != 0x3c000000 && cur->va != 0x100000)
-    //   increment_ref_count((void*)phys_to_virt((void*)cur->pa));
+    // if(cur->va == 0x3c000000 || cur->va == 0x100000) {
+    //   cur = cur->next;
+    //   continue;
+    // }
+    // void *pm = kmalloc(cur->sz);
+    // memcpy(pm, (void*)phys_to_virt((void*)cur->pa), cur->sz);
+    // add_vma(dst, cur->va, virt_to_phys(pm), cur->sz, cur->flags);
+
+    /* COW version*/
+    add_vma(dst, cur->va, cur->pa, cur->sz, cur->flags);
+    if(cur->va != 0x3c000000 && cur->va != 0x100000)
+      increment_ref_count((void*)phys_to_virt((void*)cur->pa));
     cur = cur->next;
   }while(cur != src);
   // *dst = src;
@@ -272,26 +274,35 @@ void page_fault_handler(){
           // frame_t *frame = get_frame(phys_to_virt((void*)(*pte & 0xfffffffff000)));
           frame_t *frame = get_frame(phys_to_virt((void*)vma->pa));
           if(frame->ref_count > 1){
-            uart_sends("[Copy-on-write fault.]\n");
+            uart_sends("[Copy-on-write fault]\n");
             frame->ref_count--;
             remove_vma(&t->vma_list, vma->va);
             void *new_page = kmalloc(vma->sz);
-            add_vma(&t->vma_list, vma->va, virt_to_phys(new_page), vma->sz, vma->flags);
             memcpy(new_page, (void*)phys_to_virt((void*)vma->pa), vma->sz);
-            // addr - vma->va;
-            // for()
-            *pte = 0;
+            if(vma->va == 0xffffffffb000)
+              t->stack = new_page;
+            unsigned long new_page_pa = virt_to_phys(new_page);
+            add_vma(&t->vma_list, vma->va, new_page_pa, vma->sz, vma->flags);
+            unsigned long va = addr & ~(PAGE_SIZE - 1);
+            unsigned long pa = new_page_pa + (va - vma->va);
+            // *pte = pa | ((*pte & 0xfff) & ~PD_RDONLY);
+            *pte = pa | (*pte & 0xf7f);
             // void *new_page = kmalloc(PAGE_SIZE);
             // memcpy(new_page, (void*)phys_to_virt((void*)(*pte & 0xfffffffff000)), PAGE_SIZE);
             // *pte = virt_to_phys(new_page)|((*pte & 0xfff) & ~PD_RDONLY);
           }
           else{
-            uart_sendi(t->tid);
-            uart_sends(": [Permission fault.]\n");
+            uart_sends("[Permission fault]\n");
             uart_sends("addr: 0x");
             uart_sendl(addr);
             uart_sends("\n");
-            *pte &= ~PD_RDONLY;
+            if((*pte & 0xfffffffff000) >= vma->pa && (*pte & 0xfffffffff000) < (vma->pa + vma->sz))
+              *pte &= ~PD_RDONLY;
+            else{
+              unsigned long va = addr & ~(PAGE_SIZE - 1);
+              unsigned long pa = vma->pa + (va - vma->va);
+              *pte = pa | (*pte & 0xf7f);
+            }
           }
           return;
         }

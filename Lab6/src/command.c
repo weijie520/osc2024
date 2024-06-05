@@ -10,6 +10,7 @@
 #include "thread.h"
 #include "syscall.h"
 #include "vm.h"
+#include "signal.h"
 
 Command commands[] = {
     {"help", "print all available commands.", help},
@@ -81,10 +82,10 @@ int exec(void* args[]){
     thread *t = thread_create(p);
     t->stack = kmalloc(THREAD_STACK_SIZE);
 
-    add_vma(&t->vma_list, 0x0, virt_to_phys(p), size, 0b101);
+    add_vma(&t->vma_list, 0x0, virt_to_phys(p), size, 0b111);
     add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
     add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
-
+    add_vma(&t->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
     t->regs.lr = 0x0;
     t->regs.sp = 0xfffffffff000;
     t->regs.fp = t->regs.sp;

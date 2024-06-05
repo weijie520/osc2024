@@ -112,13 +112,13 @@ int sys_fork(trapframe *tf){
   copy_vma_list(&child->vma_list, cur->vma_list);
 
   // page table copy
-  // copy_pagetable((pagetable_t)child->regs.pgd, (pagetable_t)cur->regs.pgd, 0);
+  copy_pagetable((pagetable_t)child->regs.pgd, (pagetable_t)cur->regs.pgd, 0);
   // uart_sends("================parent pagetable================\n");
   // dump_pagetable(phys_to_virt(cur->regs.pgd), 0);
   // uart_sends("================child pagetable================\n");
   // dump_pagetable(phys_to_virt(child->regs.pgd), 0);
-  add_vma(&child->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
-  add_vma(&child->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
+  // add_vma(&child->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
+  // add_vma(&child->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
   // memcpy((void*)phys_to_virt((void*)child->regs.pgd), (void*)phys_to_virt((void*)cur->regs.pgd), 0x1000);
   // child->code = kmalloc(cur->code_size);
   // child->code_size = cur->code_size;
@@ -196,7 +196,8 @@ void posix_kill(int pid, int signum){
 void sys_sigreturn(unsigned long sp_el0){
   thread *t = get_current();
   t->signal_processing = 0;
-  kfree((void*)((sp_el0 % THREAD_STACK_SIZE)?(sp_el0 & ~(THREAD_STACK_SIZE-1)):(sp_el0 - THREAD_STACK_SIZE)));
+  remove_vma(&t->vma_list, 0x120000);
+  // kfree((void*)((sp_el0 % THREAD_STACK_SIZE)?(sp_el0 & ~(THREAD_STACK_SIZE-1)):(sp_el0 - THREAD_STACK_SIZE)));
   restore_context(&t->signal_regs);
 }
 
