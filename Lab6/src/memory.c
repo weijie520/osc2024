@@ -411,7 +411,7 @@ void kfree(void *address){
   }
 }
 
-/* */
+/* for COW */
 void increment_ref_count(void *address){
   int index = ((unsigned long)address - BASE_ADDRESS) / PAGE_SIZE;
   frame_array[index].ref_count++;
@@ -422,4 +422,8 @@ void decrement_ref_count(void *address){
   frame_array[index].ref_count--;
   if(frame_array[index].ref_count == 0)
     free_pages(address);
+}
+
+frame_t *get_frame(unsigned long addr){
+  return &frame_array[(addr - BASE_ADDRESS) / PAGE_SIZE];
 }

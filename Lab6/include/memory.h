@@ -49,4 +49,8 @@ void kmem_cache_init();
 void *kmalloc(int size);
 void kfree(void *address);
 
+void increment_ref_count(void *address);
+void decrement_ref_count(void *address);
+frame_t *get_frame(unsigned long addr);
+
 #endif
