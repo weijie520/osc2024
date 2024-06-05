@@ -8,6 +8,7 @@
 #include "syscall.h"
 #include "thread.h"
 #include "vm.h"
+#include "signal.h"
 
 extern void restore_context(callee_reg* regs);
 
@@ -46,15 +47,15 @@ int sys_exec(const char *name, char *const argv[]){
   // t->code_size = program_size;
   clear_vma_list(&t->vma_list);
   clear_pagetable((pagetable_t)t->regs.pgd, 0);
-
   // memset(t->stack, 0, THREAD_STACK_SIZE);
   // memset((void*)phys_to_virt((void*)t->regs.pgd), 0, 0x1000); // memory leak. TODO: record the program start
 
   t->stack = kmalloc(THREAD_STACK_SIZE);
   // memset(t->stack, 0, THREAD_STACK_SIZE);
-  add_vma(&t->vma_list, 0x0, virt_to_phys(p), program_size, 0b101);
+  add_vma(&t->vma_list, 0x0, virt_to_phys(p), program_size, 0b111);
   add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
   add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
+  add_vma(&t->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
   // map_pages((pagetable_t)t->regs.pgd, 0x0, virt_to_phys(t->code), program_size, 0);
   // map_pages((pagetable_t)t->regs.pgd, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0);
   // map_pages((pagetable_t)t->regs.pgd, 0x3c000000, 0x3c000000, 0x1000000, 0);
@@ -96,17 +97,28 @@ int sys_fork(trapframe *tf){
   thread *cur = get_current();
   thread *child = thread_create(0);
   int child_tid = child->tid;
+  unsigned long tmp_pgd = child->regs.pgd;
+
+  memcpy((void*)&child->regs, (void*)&cur->regs, sizeof(callee_reg));
+  child->regs.pgd = tmp_pgd;
   // child->stack = kmalloc(THREAD_STACK_SIZE);
   // user stack copy
   // memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
   // for(int i = 0; i < 100000000; i++);
   // kernel stack copy
   memcpy((void*)child->kernel_stack, (void*)cur->kernel_stack, THREAD_STACK_SIZE);
-
   // vma_list copy
   // add_vma(&child->vma_list, 0xffffffffb000, virt_to_phys(child->stack), THREAD_STACK_SIZE, 0b111);
   copy_vma_list(&child->vma_list, cur->vma_list);
+
+  // page table copy
+  // copy_pagetable((pagetable_t)child->regs.pgd, (pagetable_t)cur->regs.pgd, 0);
+  // uart_sends("================parent pagetable================\n");
+  // dump_pagetable(phys_to_virt(cur->regs.pgd), 0);
+  // uart_sends("================child pagetable================\n");
+  // dump_pagetable(phys_to_virt(child->regs.pgd), 0);
   add_vma(&child->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
+  add_vma(&child->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
   // memcpy((void*)phys_to_virt((void*)child->regs.pgd), (void*)phys_to_virt((void*)cur->regs.pgd), 0x1000);
   // child->code = kmalloc(cur->code_size);
   // child->code_size = cur->code_size;
@@ -121,9 +133,12 @@ int sys_fork(trapframe *tf){
     child->signal_handler[i] = cur->signal_handler[i];
   }
 
-  unsigned long cur_sp;
-  asm volatile("mov %0, sp" : "=r"(cur_sp));
+  unsigned long cur_sp, cur_fp;
+  asm volatile(
+    "mov %0, sp;"
+    "mov %1, fp;" : "=r"(cur_sp), "=r"(cur_fp));
   child->regs.sp = (unsigned long)(cur_sp + ((void*)child->kernel_stack - cur->kernel_stack));
+  child->regs.fp = child->regs.sp;
   // child->regs.sp = cur_sp;
 
   trapframe *child_tf = (trapframe *)(child->kernel_stack + ((char*)tf - (char*)cur->kernel_stack));
@@ -144,7 +159,6 @@ int sys_fork(trapframe *tf){
 int sys_mbox_call(unsigned char ch, unsigned int *mbox){
 
   if(((unsigned long)mbox & VIRT_OFFSET) == 0){
-    dump_pagetable((pagetable_t)phys_to_virt((void*)get_current()->regs.pgd), 0);
     pte_t *pte = walk((pagetable_t)phys_to_virt((void*)get_current()->regs.pgd), (unsigned long)mbox, 0);
     if(!pte || !(*pte & 0x1)){
       uart_sends("mbox: ");
@@ -153,7 +167,6 @@ int sys_mbox_call(unsigned char ch, unsigned int *mbox){
     }
 
     unsigned long phys = (*pte & 0xfffffffff000) | ((unsigned long)mbox & 0xfff);
-    // for(long long i = 0; i < 100000000; i++);
     return mailbox_call(ch, (unsigned int *)phys_to_virt((void*)phys));
   }
 
