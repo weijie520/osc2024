@@ -30,15 +30,17 @@ void signal_exec(thread *t, int signum){
   memcpy((void*)&t->signal_regs, (void*)&t->regs, sizeof(callee_reg));
 
   // set new context for signal handler
-  t->regs.sp = (unsigned long)kmalloc(THREAD_STACK_SIZE);
-  t->regs.lr = (unsigned long)handler_container;
+  // t->regs.sp = virt_to_phys(kmalloc(THREAD_STACK_SIZE));
+  void* signal_stack = virt_to_phys(kmalloc(THREAD_STACK_SIZE));
+  add_vma(&t->vma_list, 0x120000, virt_to_phys(signal_stack), THREAD_STACK_SIZE, 0b111);
+  t->regs.lr = 0x100000; // virtual address of handler_container
 
   asm volatile(
     "msr spsr_el1, %0;"
     "msr elr_el1, %1;"
     "msr sp_el0, %2;"
     "mov x0, %3;"
-    "eret;" :: "r"(0x0), "r" (t->regs.lr), "r" (t->regs.sp+0x1000), "r"(t->signal_handler[signum])
+    "eret;" :: "r"(0x0), "r" (t->regs.lr+((unsigned long)handler_container % 0x1000)), "r" (0x124000), "r"(t->signal_handler[signum])
   );
 }
 
