@@ -158,8 +158,10 @@ void idle(){
 void kill_zombies(){
   while(terminated_queue){
     thread *t = dequeue(&terminated_queue);
-    kfree(t->stack);
+    // kfree(t->stack);
     kfree(t->kernel_stack);
+    clear_vma_list(&t->vma_list);
+    clear_pagetable((pagetable_t)t->regs.pgd, 0);
     kfree(t);
   }
 }
