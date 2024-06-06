@@ -133,10 +133,8 @@ int sys_fork(trapframe *tf){
     child->signal_handler[i] = cur->signal_handler[i];
   }
 
-  unsigned long cur_sp, cur_fp;
-  asm volatile(
-    "mov %0, sp;"
-    "mov %1, fp;" : "=r"(cur_sp), "=r"(cur_fp));
+  unsigned long cur_sp;
+  asm volatile("mov %0, sp;" : "=r"(cur_sp));
   child->regs.sp = (unsigned long)(cur_sp + ((void*)child->kernel_stack - cur->kernel_stack));
   child->regs.fp = child->regs.sp;
   // child->regs.sp = cur_sp;

@@ -31,7 +31,7 @@ void signal_exec(thread *t, int signum){
 
   // set new context for signal handler
   // t->regs.sp = virt_to_phys(kmalloc(THREAD_STACK_SIZE));
-  void* signal_stack = virt_to_phys(kmalloc(THREAD_STACK_SIZE));
+  void* signal_stack = (void*)virt_to_phys(kmalloc(THREAD_STACK_SIZE));
   add_vma(&t->vma_list, 0x120000, virt_to_phys(signal_stack), THREAD_STACK_SIZE, 0b111);
   t->regs.lr = 0x100000; // virtual address of handler_container
 
