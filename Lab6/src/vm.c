@@ -66,7 +66,7 @@ void remove_vma(vm_area_t **head, unsigned long va){
           *head = tmp->next;
       }
 
-      if(tmp->va != 0x3c000000 && tmp->va != 0x100000)
+      if(tmp->va != 0x80000 && tmp->va != 0x3c000000 && tmp->va != 0x100000)
         decrement_ref_count((void*)phys_to_virt((void*)tmp->pa));
 
       // decrement_vma_ref_count(tmp);
@@ -93,7 +93,7 @@ void clear_vma_list(vm_area_t **head){
       *head = tmp->next;
     }
     // skip peripheral because it's not allocated by kmalloc
-    if(tmp->va != 0x3c000000 && tmp->va != 0x100000)
+    if(tmp->va != 0x80000 && tmp->va != 0x3c000000 && tmp->va != 0x100000)
       decrement_ref_count((void*)phys_to_virt((void*)tmp->pa));
 
     // decrement_vma_ref_count(tmp);
@@ -115,7 +115,7 @@ void copy_vma_list(vm_area_t **dst, vm_area_t *src){
 
     /* COW version*/
     add_vma(dst, cur->va, cur->pa, cur->sz, cur->flags);
-    if(cur->va != 0x3c000000 && cur->va != 0x100000)
+    if(cur->va != 0x80000 && cur->va != 0x3c000000 && cur->va != 0x100000)
       increment_ref_count((void*)phys_to_virt((void*)cur->pa));
     cur = cur->next;
   }while(cur != src);
@@ -220,7 +220,7 @@ void copy_pagetable(pagetable_t dst, pagetable_t src, int level){
         copy_pagetable((pagetable_t)((void*)(dst_pgd[i] & 0xfffffffff000)), (pagetable_t)((void*)(src_pgd[i] & 0xfffffffff000)), level+1);
       }
       else {
-        increment_ref_count((void*)phys_to_virt((void*)(src_pgd[i] & 0xfffffffff000)));
+        // increment_ref_count((void*)phys_to_virt((void*)(src_pgd[i] & 0xfffffffff000)));
         src_pgd[i] |= PD_RDONLY; // set to read-only
         dst_pgd[i] = src_pgd[i];
       }
@@ -280,7 +280,7 @@ void page_fault_handler(){
             uart_sends("[Copy-on-write fault]: 0x");
             uart_sendl(addr);
             uart_sends(".\n");
-            frame->ref_count--;
+            // frame->ref_count--;
             void *new_page = kmalloc(vma->sz);
             memcpy(new_page, (void*)phys_to_virt((void*)vma->pa), vma->sz);
             if(vma->va == 0xffffffffb000)
@@ -349,5 +349,5 @@ void page_fault_handler(){
   uart_sendl(addr);
   uart_sends(".\n");
   uart_sends("[Segmentation fault]: Kill Process.\n");
-  thread_kill(t->tid);
+  thread_exit();
 }

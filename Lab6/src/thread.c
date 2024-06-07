@@ -120,10 +120,19 @@ thread *thread_create(void (*func)(void)){
 }
 
 // TODO: Implement implicit thread exit
-// void thread_wrapper(void (*func)()){
-//   func();
-//   thread_exit();
-// }
+void thread_wrapper(){
+  // func();
+  asm volatile(
+    "mov x5, 0x0;"
+    "blr x5;"
+  );
+
+  // exit(0);
+  asm volatile(
+    "mov x8, 5;"
+    "svc 0;"
+  )
+}
 
 thread *get_thread(int tid){
   thread *tmp = running_queue;

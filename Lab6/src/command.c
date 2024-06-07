@@ -83,10 +83,11 @@ int exec(void* args[]){
     t->stack = kmalloc(THREAD_STACK_SIZE);
 
     add_vma(&t->vma_list, 0x0, virt_to_phys(p), size, 0b111);
+    add_vma(&t->vma_list, 0x80000, virt_to_phys(thread_wrapper), 0x1000, 0b101);
     add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
     add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
-    add_vma(&t->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
-    t->regs.lr = 0x0;
+    add_vma(&t->vma_list, 0x100000, virt_to_phys(handler_container), 0x1000, 0b101);
+    t->regs.lr = 0x80000;
     t->regs.sp = 0xfffffffff000;
     t->regs.fp = t->regs.sp;
     asm volatile(
@@ -100,7 +101,7 @@ int exec(void* args[]){
       "dsb ish;"
       "isb;"
       "mov sp, %4;"
-      "eret;" :: "r" (t), "r" (t->regs.lr), "r" (t->regs.sp), "r"(t->regs.pgd), "r" (t->kernel_stack+0x4000)
+      "eret;" :: "r" (t), "r" (t->regs.lr + ((unsigned long)thread_wrapper % 0x1000)), "r" (t->regs.sp), "r"(t->regs.pgd), "r" (t->kernel_stack+0x4000)
     );
   }
   else{
