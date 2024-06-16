@@ -18,9 +18,6 @@ int sys_getpid(){
 }
 
 size_t sys_uartread(char buf[], size_t size){
-  uart_sends("buf: ");
-  uart_sendl((unsigned long)&buf[0]);
-  uart_sends("\n");
   size_t i = 0;
   while(i < size){
     buf[i] = uart_recv();
