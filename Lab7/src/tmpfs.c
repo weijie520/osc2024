@@ -3,6 +3,20 @@
 #include "string.h"
 #include "memory.h"
 
+struct file_operations tmpfs_file_operations = {
+    .write = tmpfs_write,
+    .read = tmpfs_read,
+    .open = tmpfs_open,
+    .close = tmpfs_close,
+    .lseek64 = tmpfs_lseek64,
+};
+
+struct vnode_operations tmpfs_vnode_operations = {
+    .lookup = tmpfs_lookup,
+    .create = tmpfs_create,
+    .mkdir = tmpfs_mkdir,
+};
+
 int register_tmpfs()
 {
   struct filesystem *fs = (struct filesystem *)kmalloc(sizeof(struct filesystem));
@@ -18,7 +32,7 @@ int tmpfs_write(struct file *file, const void *buf, unsigned int len)
   if (file->f_pos + len > TMPFS_MAX_FILE_SIZE)
     len = TMPFS_MAX_FILE_SIZE - file->f_pos;
 
-  memcpy(node->data + file->f_pos, (void *)buf, len);
+  memcpy((void *)(node->data + file->f_pos), (void *)buf, len);
   file->f_pos += len;
   if (node->size < file->f_pos)
     node->size = file->f_pos;
@@ -108,12 +122,14 @@ int tmpfs_create(struct vnode *dir_node, struct vnode **target, const char *comp
       for (int j = 0; j < TMPFS_MAX_ENTRIES; j++)
         new_node->entries[j] = 0;
 
-      dir->entries[i] = *target;
       *target = kmalloc(sizeof(struct vnode));
+      (*target)->parent = dir_node;
       (*target)->internal = (void *)new_node;
       (*target)->f_ops = dir_node->f_ops;
       (*target)->v_ops = dir_node->v_ops;
       (*target)->mount = 0;
+
+      dir->entries[i] = *target;
       return 0;
     }
   }
@@ -135,12 +151,13 @@ int tmpfs_mkdir(struct vnode *dir_node, struct vnode **target, const char *compo
       for (int j = 0; j < TMPFS_MAX_ENTRIES; j++)
         new_node->entries[j] = 0;
 
-      dir->entries[i] = *target;
       *target = (struct vnode *)kmalloc(sizeof(struct vnode));
+      (*target)->parent = dir_node;
       (*target)->internal = (void *)new_node;
       (*target)->f_ops = dir_node->f_ops;
       (*target)->v_ops = dir_node->v_ops;
       (*target)->mount = 0;
+      dir->entries[i] = *target;
       return 0;
     }
   }
@@ -150,15 +167,17 @@ int tmpfs_mkdir(struct vnode *dir_node, struct vnode **target, const char *compo
 int tmpfs_setup_mount(struct filesystem *fs, struct mount *mount)
 {
   struct tmpfs_node *root = (struct tmpfs_node *)kmalloc(sizeof(struct tmpfs_node));
-  strcpy(root->name, "/");
   root->is_dir = 1;
   root->size = 0;
   root->data = 0;
   for (int i = 0; i < TMPFS_MAX_ENTRIES; i++)
     root->entries[i] = 0;
 
-  mount->root = (struct vnode *)root;
+  mount->root = (struct vnode *)kmalloc(sizeof(struct vnode));
+  mount->fs = fs;
+  mount->root->v_ops = &tmpfs_vnode_operations;
+  mount->root->f_ops = &tmpfs_file_operations;
   mount->root->mount = mount;
-
+  mount->root->internal = (void *)root;
   return 0;
 }

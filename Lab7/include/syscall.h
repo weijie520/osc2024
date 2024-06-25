@@ -16,7 +16,14 @@ void sys_kill(int pid);
 void sys_signal(int signum, void (*handler)());
 void posix_kill(int pid, int signum);
 void sys_sigreturn();
-void* sys_mmap(void* addr, unsigned long len, int prot, int flags, int fd, int file_offset);
+void *sys_mmap(void *addr, unsigned long len, int prot, int flags, int fd, int file_offset);
+int sys_open(const char *pathname, int flags);
+int sys_close(int fd);
+long sys_write(int fd, const void *buf, size_t count);
+long sys_read(int fd, void *buf, size_t count);
+int sys_mkdir(const char *pathname, unsigned mode);
+int sys_mount(const char *src, const char *target, const char *filesystem, unsigned long flags, const void *data);
+int sys_chdir(const char *path);
 
 /* Wrapper of system call */
 int getpid();

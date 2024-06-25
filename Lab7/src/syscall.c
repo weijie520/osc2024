@@ -9,38 +9,46 @@
 #include "thread.h"
 #include "vm.h"
 #include "signal.h"
+#include "vfs.h"
+#include "tmpfs.h"
 
-extern void restore_context(callee_reg* regs);
+extern void restore_context(callee_reg *regs);
 
-int sys_getpid(){
+int sys_getpid()
+{
   thread *t = get_current();
   return t->tid;
 }
 
-size_t sys_uartread(char buf[], size_t size){
+size_t sys_uartread(char buf[], size_t size)
+{
   size_t i = 0;
-  while(i < size){
+  while (i < size)
+  {
     buf[i] = uart_recv();
     i++;
   }
   return i;
 }
 
-size_t sys_uartwrite(char buf[], size_t size){
+size_t sys_uartwrite(char buf[], size_t size)
+{
   size_t i;
-  for(i = 0; i < size; i++){
+  for (i = 0; i < size; i++)
+  {
     uart_sendc(buf[i]);
   }
   return i;
 }
 
-int sys_exec(const char *name, char *const argv[]){
-  void* exec = fetch_exec((char*)name);
+int sys_exec(const char *name, char *const argv[])
+{
+  void *exec = fetch_exec((char *)name);
   int program_size = get_exec_size(name);
 
   void *p = kmalloc(program_size);
 
-  memcpy((void*)p, (void*)exec, program_size);
+  memcpy((void *)p, (void *)exec, program_size);
 
   thread *t = get_current();
   // t->code = p;
@@ -63,7 +71,8 @@ int sys_exec(const char *name, char *const argv[]){
 
   // dump_pagetable(phys_to_virt(t->regs.pgd), 0);
 
-  for(int i = 0; i < MAX_SIGNAL+1; i++){
+  for (int i = 0; i < MAX_SIGNAL + 1; i++)
+  {
     t->signal_handler[i] = 0;
   }
   t->regs.lr = 0x80000;
@@ -71,43 +80,45 @@ int sys_exec(const char *name, char *const argv[]){
   t->regs.fp = t->regs.sp;
 
   asm volatile(
-    "msr tpidr_el1, %0;"
-    "msr spsr_el1, xzr;" // spsr_el1 bit[9:6] are D, A, I, and F; bit[3:0]: el0t
-    "msr elr_el1, %1;"
-    "msr sp_el0, %2;"
-    "mov sp, %3;"
-    "dsb ish;"
-    "msr ttbr0_el1, %4;"
-    "tlbi vmalle1is;"
-    "dsb ish;"
-    "isb;"
-    "eret;" :: "r" (t), "r" (t->regs.lr + ((unsigned long)thread_wrapper % 0x1000)), "r" (t->regs.sp), "r" (t->kernel_stack+THREAD_STACK_SIZE), "r"(t->regs.pgd)
-  );
+      "msr tpidr_el1, %0;"
+      "msr spsr_el1, xzr;" // spsr_el1 bit[9:6] are D, A, I, and F; bit[3:0]: el0t
+      "msr elr_el1, %1;"
+      "msr sp_el0, %2;"
+      "mov sp, %3;"
+      "dsb ish;"
+      "msr ttbr0_el1, %4;"
+      "tlbi vmalle1is;"
+      "dsb ish;"
+      "isb;"
+      "eret;" ::"r"(t),
+      "r"(t->regs.lr + ((unsigned long)thread_wrapper % 0x1000)), "r"(t->regs.sp), "r"(t->kernel_stack + THREAD_STACK_SIZE), "r"(t->regs.pgd));
   return 0;
 }
 
-void set_child_lr(thread* t){
+void set_child_lr(thread *t)
+{
   unsigned long ret;
-  asm volatile("mov %0, lr" : "=r" (ret));
+  asm volatile("mov %0, lr" : "=r"(ret));
   t->regs.lr = ret;
   return;
 }
 
 // when do system call, the thread->regs should store kernel state.
-int sys_fork(trapframe *tf){
+int sys_fork(trapframe *tf)
+{
   thread *cur = get_current();
   thread *child = thread_create(0);
   int child_tid = child->tid;
   unsigned long tmp_pgd = child->regs.pgd;
 
-  memcpy((void*)&child->regs, (void*)&cur->regs, sizeof(callee_reg));
+  memcpy((void *)&child->regs, (void *)&cur->regs, sizeof(callee_reg));
   child->regs.pgd = tmp_pgd;
   // child->stack = kmalloc(THREAD_STACK_SIZE);
   // user stack copy
   // memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
   // for(int i = 0; i < 100000000; i++);
   // kernel stack copy
-  memcpy((void*)child->kernel_stack, (void*)cur->kernel_stack, THREAD_STACK_SIZE);
+  memcpy((void *)child->kernel_stack, (void *)cur->kernel_stack, THREAD_STACK_SIZE);
   // vma_list copy
   // add_vma(&child->vma_list, 0xffffffffb000, virt_to_phys(child->stack), THREAD_STACK_SIZE, 0b111);
   copy_vma_list(&child->vma_list, cur->vma_list);
@@ -130,24 +141,26 @@ int sys_fork(trapframe *tf){
 
   // dump_pagetable(phys_to_virt(child->regs.pgd), 0);
   // signal handler copy
-  for(int i = 0; i < MAX_SIGNAL+1; i++){
+  for (int i = 0; i < MAX_SIGNAL + 1; i++)
+  {
     child->signal_handler[i] = cur->signal_handler[i];
   }
 
   unsigned long cur_sp;
   asm volatile("mov %0, sp;" : "=r"(cur_sp));
-  child->regs.sp = (unsigned long)(cur_sp + ((void*)child->kernel_stack - cur->kernel_stack));
+  child->regs.sp = (unsigned long)(cur_sp + ((void *)child->kernel_stack - cur->kernel_stack));
   child->regs.fp = child->regs.sp;
   // child->regs.sp = cur_sp;
 
-  trapframe *child_tf = (trapframe *)(child->kernel_stack + ((char*)tf - (char*)cur->kernel_stack));
+  trapframe *child_tf = (trapframe *)(child->kernel_stack + ((char *)tf - (char *)cur->kernel_stack));
 
   child_tf->x[0] = 0;
   // child_tf->sp_el0 = (unsigned long)(child->stack+((void*)tf->sp_el0 - cur->stack));
   child_tf->sp_el0 = tf->sp_el0;
   set_child_lr(child);
 
-  if(get_current()->tid == child_tid){
+  if (get_current()->tid == child_tid)
+  {
     return 0;
   }
 
@@ -155,44 +168,53 @@ int sys_fork(trapframe *tf){
   return child->tid;
 }
 
-int sys_mbox_call(unsigned char ch, unsigned int *mbox){
+int sys_mbox_call(unsigned char ch, unsigned int *mbox)
+{
 
-  if(((unsigned long)mbox & VIRT_OFFSET) == 0){
-    pte_t *pte = walk((pagetable_t)phys_to_virt((void*)get_current()->regs.pgd), (unsigned long)mbox, 0);
-    if(!pte || !(*pte & 0x1)){
+  if (((unsigned long)mbox & VIRT_OFFSET) == 0)
+  {
+    pte_t *pte = walk((pagetable_t)phys_to_virt((void *)get_current()->regs.pgd), (unsigned long)mbox, 0);
+    if (!pte || !(*pte & 0x1))
+    {
       uart_sends("mbox: ");
       uart_sendl((unsigned long)mbox);
       uart_sends("\nmbox_call: walk failed\n");
     }
 
     unsigned long phys = (*pte & 0xfffffffff000) | ((unsigned long)mbox & 0xfff);
-    return mailbox_call(ch, (unsigned int *)phys_to_virt((void*)phys));
+    return mailbox_call(ch, (unsigned int *)phys_to_virt((void *)phys));
   }
 
   return mailbox_call(ch, mbox);
 }
 
-void sys_exit(int status){
+void sys_exit(int status)
+{
   thread_exit();
 }
 
-void sys_kill(int pid){
+void sys_kill(int pid)
+{
   thread_kill(pid);
 }
 
-void sys_signal(int signum, void (*handler)()){
+void sys_signal(int signum, void (*handler)())
+{
   thread *t = get_current();
   t->signal_handler[signum] = handler;
 }
 
-void posix_kill(int pid, int signum){
+void posix_kill(int pid, int signum)
+{
   thread *t = get_thread(pid);
-  if(t){
+  if (t)
+  {
     t->signal_pending |= 1 << signum;
   }
 }
 
-void sys_sigreturn(unsigned long sp_el0){
+void sys_sigreturn(unsigned long sp_el0)
+{
   thread *t = get_current();
   t->signal_processing = 0;
   remove_vma(&t->vma_list, 0x120000);
@@ -200,87 +222,206 @@ void sys_sigreturn(unsigned long sp_el0){
   restore_context(&t->signal_regs);
 }
 
-void* sys_mmap(void* addr, unsigned long len, int prot, int flags, int fd, int file_offset){
+void *sys_mmap(void *addr, unsigned long len, int prot, int flags, int fd, int file_offset)
+{
   thread *t = get_current();
   unsigned long start = (unsigned long)addr & ~(PAGE_SIZE - 1);
-  unsigned long size = len%PAGE_SIZE?((len/PAGE_SIZE) + 1) * PAGE_SIZE:len;
+  unsigned long size = len % PAGE_SIZE ? ((len / PAGE_SIZE) + 1) * PAGE_SIZE : len;
 
   vm_area_t *prev = 0, *cur = t->vma_list;
-  do{
+  do
+  {
     prev = cur;
     cur = cur->next;
-  }while(cur != t->vma_list && cur->va <= (start + size));
+  } while (cur != t->vma_list && cur->va <= (start + size));
 
-
-  if(!addr || (prev && (prev->va + prev->sz) > start) || (cur && cur->va < (start + size))){
-    if(prev)
+  if (!addr || (prev && (prev->va + prev->sz) > start) || (cur && cur->va < (start + size)))
+  {
+    if (prev)
       start = ((prev->va + prev->sz) + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
-    else start = 0;
+    else
+      start = 0;
   }
 
   void *p = kmalloc(size);
   memset(p, 0, size);
   add_vma(&t->vma_list, start, virt_to_phys(p), size, prot);
-  return (void*)start;
+  return (void *)start;
 }
 
-int getpid(){
+int sys_open(const char *pathname, int flags)
+{
+  thread *t = get_current();
+  uart_sends("[open]: ");
+  uart_sends(pathname);
+  uart_sends("\n");
+
+  for (int i = 0; i < THREAD_FD_TABLE_SIZE; i++)
+  {
+    if (t->fd_table[i] == 0)
+    {
+      vfs_open(pathname, flags, &t->fd_table[i]);
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+int sys_close(int fd)
+{
+  uart_sends("[close]: fd: ");
+  uart_sendi(fd);
+  uart_sends("\n");
+  thread *t = get_current();
+  vfs_close(t->fd_table[fd]);
+  t->fd_table[fd] = 0;
+  return 0;
+}
+
+long sys_write(int fd, const void *buf, size_t count)
+{
+  thread *t = get_current();
+  uart_sends("[write]: fd: ");
+  uart_sendi(fd);
+  uart_sends("\n");
+  return vfs_write(t->fd_table[fd], buf, count);
+}
+
+long sys_read(int fd, void *buf, size_t count)
+{
+  uart_sends("[read]: fd: ");
+  uart_sendi(fd);
+  uart_sends("\n");
+  thread *t = get_current();
+  return vfs_read(t->fd_table[fd], buf, count);
+  ;
+}
+
+int sys_mkdir(const char *pathname, unsigned mode)
+{
+  uart_sends("[mkdir]: ");
+  uart_sends(pathname);
+  uart_sends("\n");
+  return vfs_mkdir(pathname);
+}
+
+int sys_mount(const char *src, const char *target, const char *filesystem, unsigned long flags, const void *data)
+{
+  uart_sends("[mount]: ");
+  uart_sends(target);
+  uart_sends(" with ");
+  uart_sends(filesystem);
+  uart_sends("\n");
+  return vfs_mount(target, filesystem);
+}
+
+int sys_chdir(const char *path)
+{
+  uart_sends("[chdir]: ");
+  uart_sends(path);
+  uart_sends("\n");
+  thread *t = get_current();
+  vfs_lookup(path, &t->cwd);
+  return 0;
+}
+
+int getpid()
+{
   int ret;
   asm volatile("mov x8, 0;"
                "svc	0;"
                "mov	%0 , x0;"
-               : "=r" (ret));
+               : "=r"(ret));
   return ret;
 }
 
-int fork(){
+int fork()
+{
   int ret;
   asm volatile("mov x8, 4;"
                "svc	0;"
                "mov	%0 , x0;"
-               : "=r" (ret));
+               : "=r"(ret));
   return ret;
 }
 
-void exit(int status){
+void exit(int status)
+{
   asm volatile("mov x8, 5;"
                "svc	0;");
 }
 
-void sigreturn(){
+void sigreturn()
+{
   asm volatile(
-    "mov x8, 20;"
-    "svc 0;"
-  );
+      "mov x8, 20;"
+      "svc 0;");
 }
 
 /* For test */
 
-void jump_to_el0(){
+void jump_to_el0()
+{
   thread *t = get_current();
   uart_sendi(t->tid);
-  for(int i = 0; i < 1000000; i++);
+  for (int i = 0; i < 1000000; i++)
+    ;
 
-  asm volatile("msr spsr_el1, %0" ::"r"(0x3c0));          // disable E A I F
-  asm volatile("msr elr_el1, %0" ::"r"(fork_test));       // get back to caller function
+  asm volatile("msr spsr_el1, %0" ::"r"(0x3c0));    // disable E A I F
+  asm volatile("msr elr_el1, %0" ::"r"(fork_test)); // get back to caller function
   asm volatile("msr sp_el0, %0" ::"r"(t->regs.sp));
   asm volatile("mov sp, %0" ::"r"(t->kernel_stack + THREAD_STACK_SIZE));
   asm volatile("eret");
 }
 
-void fork_test(){
-    uart_sends("\nFork Test, pid ");
+void fork_test()
+{
+  uart_sends("\nFork Test, pid ");
 
+  uart_sendi(getpid());
+  uart_sends("\n");
+  for (int i = 0; i < 1000000; i++)
+    ; // delay
+  int cnt = 1;
+  int ret = 0;
+  if ((ret = fork()) == 0)
+  { // child
+    long long cur_sp;
+    asm volatile("mov %0, sp" : "=r"(cur_sp));
+    // printf("first child pid: %d, cnt: %d, ptr: %x, sp : %x\n", get_pid(), cnt, &cnt, cur_sp);
+    uart_sends("first child pid: ");
     uart_sendi(getpid());
+    uart_sends(", cnt: ");
+    uart_sendi(cnt);
+    uart_sends(", ptr: ");
+    uart_sendh((unsigned long)&cnt);
+    uart_sends(", sp: ");
+    uart_sendh(cur_sp);
     uart_sends("\n");
-    for(int i = 0; i < 1000000; i++); // delay
-    int cnt = 1;
-    int ret = 0;
-    if ((ret = fork()) == 0) { // child
-        long long cur_sp;
+    ++cnt;
+
+    if ((ret = fork()) != 0)
+    {
+      asm volatile("mov %0, sp" : "=r"(cur_sp));
+      // printf("first child pid: %d, cnt: %d, ptr: %x, sp : %x\n", get_pid(), cnt, &cnt, cur_sp);
+      uart_sends("first child pid: ");
+      uart_sendi(getpid());
+      uart_sends(", cnt: ");
+      uart_sendi(cnt);
+      uart_sends(", ptr: ");
+      uart_sendh((unsigned long)&cnt);
+      uart_sends(", sp: ");
+      uart_sendh(cur_sp);
+      uart_sends("\n");
+    }
+    else
+    {
+      while (cnt < 5)
+      {
         asm volatile("mov %0, sp" : "=r"(cur_sp));
-        // printf("first child pid: %d, cnt: %d, ptr: %x, sp : %x\n", get_pid(), cnt, &cnt, cur_sp);
-        uart_sends("first child pid: ");
+        // printf("second child pid: %d, cnt: %d, ptr: %x, sp : %x\n", get_pid(), cnt, &cnt, cur_sp);
+        uart_sends("second child pid: ");
         uart_sendi(getpid());
         uart_sends(", cnt: ");
         uart_sendi(cnt);
@@ -290,50 +431,24 @@ void fork_test(){
         uart_sendh(cur_sp);
         uart_sends("\n");
         ++cnt;
-
-        if ((ret = fork()) != 0){
-            asm volatile("mov %0, sp" : "=r"(cur_sp));
-            // printf("first child pid: %d, cnt: %d, ptr: %x, sp : %x\n", get_pid(), cnt, &cnt, cur_sp);
-            uart_sends("first child pid: ");
-            uart_sendi(getpid());
-            uart_sends(", cnt: ");
-            uart_sendi(cnt);
-            uart_sends(", ptr: ");
-            uart_sendh((unsigned long)&cnt);
-            uart_sends(", sp: ");
-            uart_sendh(cur_sp);
-            uart_sends("\n");
-        }
-        else{
-            while (cnt < 5) {
-                asm volatile("mov %0, sp" : "=r"(cur_sp));
-                // printf("second child pid: %d, cnt: %d, ptr: %x, sp : %x\n", get_pid(), cnt, &cnt, cur_sp);
-                uart_sends("second child pid: ");
-                uart_sendi(getpid());
-                uart_sends(", cnt: ");
-                uart_sendi(cnt);
-                uart_sends(", ptr: ");
-                uart_sendh((unsigned long)&cnt);
-                uart_sends(", sp: ");
-                uart_sendh(cur_sp);
-                uart_sends("\n");
-                ++cnt;
-            }
-        }
-        exit(0);
+      }
     }
-    else {
-        // printf("parent here, pid %d, child %d\n", get_pid(), ret);
-        uart_sends("parent here, pid ");
-        uart_sendi(getpid());
-        uart_sends(", child ");
-        uart_sendi(ret);
-        uart_sends("\n");
-        exit(0);
-    }
+    exit(0);
+  }
+  else
+  {
+    // printf("parent here, pid %d, child %d\n", get_pid(), ret);
+    uart_sends("parent here, pid ");
+    uart_sendi(getpid());
+    uart_sends(", child ");
+    uart_sendi(ret);
+    uart_sends("\n");
+    exit(0);
+  }
 }
 
-void sys_fork_test(){
+void sys_fork_test()
+{
   thread_create(jump_to_el0);
   idle();
 }

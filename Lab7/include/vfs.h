@@ -13,6 +13,7 @@ enum SEEK_POS
 
 struct vnode
 {
+  struct vnode *parent;
   struct mount *mount;
   struct vnode_operations *v_ops;
   struct file_operations *f_ops;
