@@ -107,12 +107,6 @@ long initramfs_lseek64(struct file *file, long offset, int whence)
   case SEEK_SET:
     new_pos = offset;
     break;
-  case SEEK_CUR:
-    new_pos = file->f_pos + offset;
-    break;
-  // case SEEK_END:
-  //   new_pos = (int)file->vnode->internal->size;
-  //   break;
   default:
     return -1;
   }
@@ -161,7 +155,7 @@ int initramfs_setup_mount(struct filesystem *fs, struct mount *mount)
   mount->fs = fs;
   mount->root->v_ops = &initramfs_v_ops;
   mount->root->f_ops = &initramfs_f_ops;
-  mount->root->mount = mount;
+  mount->root->mount = 0;
   mount->root->internal = (void *)root;
   return 0;
 }
