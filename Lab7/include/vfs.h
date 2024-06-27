@@ -2,7 +2,7 @@
 #define __VFS_H__
 
 #define MAX_
-#define O_CREAT 0b001
+#define O_CREAT 64
 
 enum SEEK_POS
 {
@@ -66,6 +66,7 @@ int vfs_open(const char *pathname, int flags, struct file **target);
 int vfs_close(struct file *file);
 int vfs_write(struct file *file, const void *buf, unsigned int len);
 int vfs_read(struct file *file, void *buf, unsigned int len);
+int vfs_lseek64(struct file *file, long offset, int whence);
 
 int vfs_mkdir(const char *pathname);
 int vfs_mount(const char *target, const char *filesystem);
