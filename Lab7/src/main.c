@@ -23,7 +23,6 @@ void main(void *dtb_ptr)
   fdt_traverse(dtb_ptr, initramfs_callback);
   heap_init();
   enable_irq();
-  core_timer_enable();
   buddy_init();
 
   reserve((void *)phys_to_virt(0x0), (void *)phys_to_virt((void *)0x3fff));                     // spin table && PGD && PUD && PMD
@@ -34,6 +33,7 @@ void main(void *dtb_ptr)
   reserve((void *)&bss_end, heap_end);                                                          // heap
 
   kmem_cache_init();
+  core_timer_enable();
   thread_init();
   init_vfs();
 
