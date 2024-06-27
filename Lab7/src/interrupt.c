@@ -184,7 +184,7 @@ int timer_irq_handler(){
     kfree(tmp);
   }
 
-  asm volatile("msr cntp_tval_el0, %0;" :: "r"(get_freq() >> 5));
+  asm volatile("msr cntp_tval_el0, %0;" :: "r"(get_freq() >> 3)); // change to 3 for vfs1.img:fork_test
   return 0;
 }
 
@@ -198,7 +198,7 @@ int lower_timer_handler(){
     kfree(tmp);
   }
 
-  asm volatile("msr cntp_tval_el0, %0;" :: "r"(get_freq() >> 5));
+  asm volatile("msr cntp_tval_el0, %0;" :: "r"(get_freq() >> 3));
   return 0;
 }
 
