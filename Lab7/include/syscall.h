@@ -24,6 +24,8 @@ long sys_read(int fd, void *buf, size_t count);
 int sys_mkdir(const char *pathname, unsigned mode);
 int sys_mount(const char *src, const char *target, const char *filesystem, unsigned long flags, const void *data);
 int sys_chdir(const char *path);
+int sys_lseek64(int fd, long offset, int whence);
+int sys_ioctl(int fd, unsigned long request, void* arg);
 
 /* Wrapper of system call */
 int getpid();

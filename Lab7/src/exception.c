@@ -117,6 +117,12 @@ int lower_exception_entry(trapframe *tf)
     case 17:
       tf->x[0] = sys_chdir((const char *)tf->x[0]);
       break;
+    case 18:
+      tf->x[0] = sys_lseek64(tf->x[0], tf->x[1], tf->x[2]);
+      break;
+    case 19:
+      tf->x[0] = sys_ioctl(tf->x[0], tf->x[1], (void *)tf->x[2]);
+      break;
     case 20:
       sys_sigreturn(tf->sp_el0);
       break;

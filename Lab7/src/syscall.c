@@ -11,6 +11,8 @@
 #include "signal.h"
 #include "vfs.h"
 #include "tmpfs.h"
+#include "initramfs.h"
+#include "dev_framebuffer.h"
 
 extern void restore_context(callee_reg *regs);
 
@@ -43,38 +45,42 @@ size_t sys_uartwrite(char buf[], size_t size)
 
 int sys_exec(const char *name, char *const argv[])
 {
-  void *exec = fetch_exec((char *)name);
-  int program_size = get_exec_size(name);
-
-  void *p = kmalloc(program_size);
-
-  memcpy((void *)p, (void *)exec, program_size);
+  struct vnode *node;
+  int ret = vfs_lookup(name, &node);
+  if (ret)
+  {
+    uart_sends("exec: No such file or directory\n");
+    return -1;
+  }
+  struct initramfs_node *target = (struct initramfs_node *)node->internal;
+  void *p = kmalloc(target->size);
+  memcpy((void *)p, (void *)target->data, target->size);
 
   thread *t = get_current();
-  // t->code = p;
-  // t->code_size = program_size;
   clear_vma_list(&t->vma_list);
   clear_pagetable((pagetable_t)t->regs.pgd, 0);
-  // memset(t->stack, 0, THREAD_STACK_SIZE);
-  // memset((void*)phys_to_virt((void*)t->regs.pgd), 0, 0x1000); // memory leak. TODO: record the program start
 
   t->stack = kmalloc(THREAD_STACK_SIZE);
   // memset(t->stack, 0, THREAD_STACK_SIZE);
-  add_vma(&t->vma_list, 0x0, virt_to_phys(p), program_size, 0b111);
+  add_vma(&t->vma_list, 0x0, virt_to_phys(p), target->size, 0b111);
   add_vma(&t->vma_list, 0x80000, virt_to_phys(thread_wrapper), 0x1000, 0b101);
   add_vma(&t->vma_list, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0b111);
   add_vma(&t->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
   add_vma(&t->vma_list, 0x100000, virt_to_phys(handler_container), 0x1000, 0b101);
-  // map_pages((pagetable_t)t->regs.pgd, 0x0, virt_to_phys(t->code), program_size, 0);
-  // map_pages((pagetable_t)t->regs.pgd, 0xffffffffb000, virt_to_phys(t->stack), 0x4000, 0);
-  // map_pages((pagetable_t)t->regs.pgd, 0x3c000000, 0x3c000000, 0x1000000, 0);
-
-  // dump_pagetable(phys_to_virt(t->regs.pgd), 0);
 
   for (int i = 0; i < MAX_SIGNAL + 1; i++)
   {
     t->signal_handler[i] = 0;
   }
+
+  for(int i = 0; i < THREAD_FD_TABLE_SIZE; i++){
+    t->fd_table[i] = 0;
+  }
+
+  vfs_open("/dev/uart", 0, &t->fd_table[0]);
+  vfs_open("/dev/uart", 0, &t->fd_table[1]);
+  vfs_open("/dev/uart", 0, &t->fd_table[2]);
+
   t->regs.lr = 0x80000;
   t->regs.sp = 0xfffffffff000;
   t->regs.fp = t->regs.sp;
@@ -113,38 +119,31 @@ int sys_fork(trapframe *tf)
 
   memcpy((void *)&child->regs, (void *)&cur->regs, sizeof(callee_reg));
   child->regs.pgd = tmp_pgd;
-  // child->stack = kmalloc(THREAD_STACK_SIZE);
+
   // user stack copy
   // memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
-  // for(int i = 0; i < 100000000; i++);
+
   // kernel stack copy
   memcpy((void *)child->kernel_stack, (void *)cur->kernel_stack, THREAD_STACK_SIZE);
   // vma_list copy
-  // add_vma(&child->vma_list, 0xffffffffb000, virt_to_phys(child->stack), THREAD_STACK_SIZE, 0b111);
   copy_vma_list(&child->vma_list, cur->vma_list);
 
   // page table copy
   copy_pagetable((pagetable_t)child->regs.pgd, (pagetable_t)cur->regs.pgd, 0);
-  // uart_sends("================parent pagetable================\n");
-  // dump_pagetable(phys_to_virt(cur->regs.pgd), 0);
-  // uart_sends("================child pagetable================\n");
-  // dump_pagetable(phys_to_virt(child->regs.pgd), 0);
-  // add_vma(&child->vma_list, 0x3c000000, 0x3c000000, 0x3000000, 0b111);
-  // add_vma(&child->vma_list, 0x100000, virt_to_phys(handler_container), 0x2000, 0b101);
-  // memcpy((void*)phys_to_virt((void*)child->regs.pgd), (void*)phys_to_virt((void*)cur->regs.pgd), 0x1000);
-  // child->code = kmalloc(cur->code_size);
-  // child->code_size = cur->code_size;
-  // memcpy((void*)child->code, (void*)cur->code, cur->code_size);
-  // map_pages((pagetable_t)child->regs.pgd, 0x0, virt_to_phys(child->code), child->code_size, 0);
-  // map_pages((pagetable_t)child->regs.pgd, 0xffffffffb000, virt_to_phys(child->stack), 0x4000, 0);
-  // map_pages((pagetable_t)child->regs.pgd, 0x3c000000, 0x3c000000, 0x1000000, 0); // map mailbox
-
-  // dump_pagetable(phys_to_virt(child->regs.pgd), 0);
+  
   // signal handler copy
   for (int i = 0; i < MAX_SIGNAL + 1; i++)
   {
     child->signal_handler[i] = cur->signal_handler[i];
   }
+
+  // fd_table copy
+  for (int i = 0; i < THREAD_FD_TABLE_SIZE; i++)
+  {
+    child->fd_table[i] = cur->fd_table[i];
+  }
+
+  child->cwd = cur->cwd;
 
   unsigned long cur_sp;
   asm volatile("mov %0, sp;" : "=r"(cur_sp));
@@ -252,9 +251,9 @@ void *sys_mmap(void *addr, unsigned long len, int prot, int flags, int fd, int f
 int sys_open(const char *pathname, int flags)
 {
   thread *t = get_current();
-  uart_sends("[open]: ");
-  uart_sends(pathname);
-  uart_sends("\n");
+  // uart_sends("[open]: ");
+  // uart_sends(pathname);
+  // uart_sends("\n");
 
   for (int i = 0; i < THREAD_FD_TABLE_SIZE; i++)
   {
@@ -270,9 +269,9 @@ int sys_open(const char *pathname, int flags)
 
 int sys_close(int fd)
 {
-  uart_sends("[close]: fd: ");
-  uart_sendi(fd);
-  uart_sends("\n");
+  // uart_sends("[close]: fd: ");
+  // uart_sendi(fd);
+  // uart_sends("\n");
   thread *t = get_current();
   vfs_close(t->fd_table[fd]);
   t->fd_table[fd] = 0;
@@ -281,49 +280,62 @@ int sys_close(int fd)
 
 long sys_write(int fd, const void *buf, size_t count)
 {
+  // uart_sends("[write]: fd: ");
+  // uart_sendi(fd);
+  // uart_sends("\n");
   thread *t = get_current();
-  uart_sends("[write]: fd: ");
-  uart_sendi(fd);
-  uart_sends("\n");
-  return vfs_write(t->fd_table[fd], buf, count);
+  return vfs_write(t->fd_table[fd], buf, count);;
 }
 
 long sys_read(int fd, void *buf, size_t count)
 {
-  uart_sends("[read]: fd: ");
-  uart_sendi(fd);
-  uart_sends("\n");
+  // uart_sends("[read]: fd: ");
+  // uart_sendi(fd);
+  // uart_sends("\n");
   thread *t = get_current();
   return vfs_read(t->fd_table[fd], buf, count);
-  ;
 }
 
 int sys_mkdir(const char *pathname, unsigned mode)
 {
-  uart_sends("[mkdir]: ");
-  uart_sends(pathname);
-  uart_sends("\n");
+  // uart_sends("[mkdir]: ");
+  // uart_sends(pathname);
+  // uart_sends("\n");
   return vfs_mkdir(pathname);
 }
 
 int sys_mount(const char *src, const char *target, const char *filesystem, unsigned long flags, const void *data)
 {
-  uart_sends("[mount]: ");
-  uart_sends(target);
-  uart_sends(" with ");
-  uart_sends(filesystem);
-  uart_sends("\n");
+  // uart_sends("[mount]: ");
+  // uart_sends(target);
+  // uart_sends(" with ");
+  // uart_sends(filesystem);
+  // uart_sends("\n");
   return vfs_mount(target, filesystem);
 }
 
 int sys_chdir(const char *path)
 {
-  uart_sends("[chdir]: ");
-  uart_sends(path);
-  uart_sends("\n");
+  // uart_sends("[chdir]: ");
+  // uart_sends(path);
+  // uart_sends("\n");
   thread *t = get_current();
   vfs_lookup(path, &t->cwd);
   return 0;
+}
+
+int sys_lseek64(int fd, long offset, int whence)
+{
+  thread *t = get_current();
+  return vfs_lseek64(t->fd_table[fd], offset, whence);
+}
+
+int sys_ioctl(int fd, unsigned long request, void *arg)
+{
+  if(request == 0)
+    return dev_framebuffer_ioctl((struct framebuffer_info*)arg);
+
+  return -1;
 }
 
 int getpid()
