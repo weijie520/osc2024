@@ -5,10 +5,16 @@
 #include "tmpfs.h"
 #include "initramfs.h"
 #include "thread.h"
+#include "dev_framebuffer.h"
+
+extern struct file_operations dev_uart_ops;
+extern struct file_operations dev_framebuffer_ops;
 
 struct mount *rootfs;
 
 struct filesystem *fs_list[10] = {0};
+
+int isFsInitialized;
 
 int register_filesystem(struct filesystem *fs)
 {
@@ -31,7 +37,7 @@ int vfs_open(const char *pathname, int flags, struct file **target)
 
   if (ret)
   { // file not found
-    if (flags & 0x040)
+    if (flags & O_CREAT)
     { // create a new file
       char *path = strdup(pathname);
       int len = strlen(pathname), index = 0;
@@ -73,6 +79,11 @@ int vfs_close(struct file *file)
 {
   int ret = file->f_ops->close(file);
   return ret;
+}
+
+int vfs_lseek64(struct file *file, long offset, int whence)
+{
+  return file->f_ops->lseek64(file, offset, whence);
 }
 
 int vfs_write(struct file *file, const void *buf, unsigned int len)
@@ -120,6 +131,15 @@ int vfs_mkdir(const char *pathname)
   return 0;
 }
 
+int vfs_mknod(const char *pathname, struct file_operations *f_ops)
+{
+  struct file *file;
+  vfs_open(pathname, O_CREAT, &file);
+  file->vnode->f_ops = f_ops;
+  vfs_close(file);
+  return 0;
+}
+
 int vfs_mount(const char *target, const char *filesystem)
 {
   struct mount *mount = (struct mount *)kmalloc(sizeof(struct mount));
@@ -142,8 +162,6 @@ int vfs_mount(const char *target, const char *filesystem)
   return -1;
 }
 
-int isFsInitialized = 1;
-
 int vfs_lookup(const char *pathname, struct vnode **target)
 {
   if (strcmp(pathname, "/") == 0)
@@ -154,11 +172,13 @@ int vfs_lookup(const char *pathname, struct vnode **target)
 
   struct vnode *node;
   if (isFsInitialized)
-    node = rootfs->root;
-  else
   {
     thread *current = get_current();
     node = current->cwd;
+  }
+  else
+  {
+    node = rootfs->root;
   }
 
   char *path = strdup(pathname);
@@ -189,7 +209,7 @@ int vfs_lookup(const char *pathname, struct vnode **target)
         // uart_sends("File not found\n");
         return -1;
       }
-      if (next_node->mount)
+      while (next_node->mount)
         next_node = next_node->mount->root;
       node = next_node;
     }
@@ -206,6 +226,7 @@ int vfs_create(struct vnode *dir_node, struct vnode **target, const char *compon
 
 int init_vfs()
 {
+  isFsInitialized = 0;
   register_tmpfs();
   rootfs = (struct mount *)kmalloc(sizeof(struct mount));
   fs_list[0]->setup_mount(fs_list[0], rootfs);
@@ -218,6 +239,11 @@ int init_vfs()
   vfs_lookup("/initramfs", &initramfs_node);
   initramfs_init(initramfs_node);
 
-  isFsInitialized = 0;
+  vfs_mkdir("/dev");
+  vfs_mknod("/dev/uart", &dev_uart_ops);
+
+  vfs_mknod("/dev/framebuffer", &dev_framebuffer_ops);
+  framebuffer_init();
+  // isFsInitialized = 1;
   return 0;
 }
