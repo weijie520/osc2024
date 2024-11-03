@@ -98,10 +98,10 @@ int sys_fork(trapframe *tf){
   thread *cur = get_current();
   thread *child = thread_create(0);
   int child_tid = child->tid;
-  unsigned long tmp_pgd = child->regs.pgd;
+  // unsigned long tmp_pgd = child->regs.pgd;
 
-  memcpy((void*)&child->regs, (void*)&cur->regs, sizeof(callee_reg));
-  child->regs.pgd = tmp_pgd;
+  // memcpy((void*)&child->regs, (void*)&cur->regs, sizeof(callee_reg));
+  // child->regs.pgd = tmp_pgd;
   // child->stack = kmalloc(THREAD_STACK_SIZE);
   // user stack copy
   // memcpy((void*)child->stack, (void*)cur->stack, THREAD_STACK_SIZE);
