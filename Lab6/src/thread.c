@@ -131,7 +131,7 @@ void thread_wrapper(){
   asm volatile(
     "mov x8, 5;"
     "svc 0;"
-  )
+  );
 }
 
 thread *get_thread(int tid){
